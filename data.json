@@ -1,7 +1,7 @@
 {
   "launcher": {
-    "version": "1.4.5",
-    "notes": "Aggiornata icona Tenebra",
+    "version": "1.4.6",
+    "notes": "Verifica integrita' file mod prima di saltare l'install",
     "url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraSetup.exe",
     "url_linux": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher",
     "exe_url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher.exe",
@@ -17,6 +17,8 @@
       "size": "13.7 MB",
       "path_windows": "VEIN\\",
       "path_linux": "VEIN/",
+      "verify_file_windows": "Binaries/Win64/ue4ss/UE4SS.dll",
+      "verify_file_linux": "Binaries/Win64/ue4ss/UE4SS.dll",
       "status": "active"
     }
   ],

@@ -24,7 +24,7 @@ import webview
 # CONFIGURAZIONE
 # ============================================================
 DATA_URL = "https://raw.githubusercontent.com/Whis1/Server-Tenebra/main/data.json"
-LAUNCHER_VERSION = "1.4.5"
+LAUNCHER_VERSION = "1.4.6"
 GAME_NAME = "VEIN"
 GAME_FOLDER_NAME = "Vein"  # nome cartella sotto steamapps/common
 # ============================================================
@@ -311,6 +311,23 @@ class Api:
         threading.Thread(target=self._install_all_thread, daemon=True).start()
         return True
 
+    def _mod_needs_install(self, mod, mod_root, installed):
+        mid = mod.get("id")
+        if not mid:
+            return False
+        # Versione diversa o mai installata -> serve install
+        if installed.get(mid) != mod.get("version"):
+            return True
+        # Anche se config dice "installato", verifica che il file marker esista
+        verify_key = "verify_file_windows" if IS_WINDOWS else "verify_file_linux"
+        verify = mod.get(verify_key) or mod.get("verify_file")
+        if verify:
+            verify_path = (mod_root / verify.replace("\\", "/")).resolve()
+            if not verify_path.exists():
+                log(f"verify_file mancante per {mid}: {verify_path} -> reinstall")
+                return True
+        return False
+
     def _install_all_thread(self):
         success = False
         error_msg = ""
@@ -319,7 +336,7 @@ class Api:
             mods = [m for m in (self.data.get("mods") or []) if m.get("status") == "active"]
             installed = self.cfg.get("installed_mods", {})
 
-            to_do = [m for m in mods if m.get("id") and (m["id"] not in installed or installed[m["id"]] != m.get("version"))]
+            to_do = [m for m in mods if m.get("id") and self._mod_needs_install(m, mod_root, installed)]
 
             if not to_do:
                 self.js("setStatus('ok', 'Mod già aggiornate')")
@@ -1189,15 +1206,12 @@ async function startLaunch() {
   }
 
   const mods = (data.mods || []).filter(m => m.status === 'active');
-  const installed = state.installed_mods || {};
-  const needs = mods.filter(m => !installed[m.id] || installed[m.id] !== m.version);
 
   if (mods.length === 0) {
     setStep('sync', 'done', 'Nessuna mod disponibile');
-  } else if (needs.length === 0) {
-    setStep('sync', 'done', `${mods.length} mod già aggiornate`);
   } else {
-    setStep('sync', 'active', `${needs.length} mod da scaricare...`);
+    // Lascia decidere a Python (verifica anche file effettivi sul disco)
+    setStep('sync', 'active', 'Verifica mod...');
     showProgressBar(true);
     const syncResult = await new Promise(resolve => {
       _syncResolve = resolve;
@@ -1211,7 +1225,7 @@ async function startLaunch() {
       return;
     }
     state = await api.get_state();
-    setStep('sync', 'done', `${needs.length} mod installate`);
+    setStep('sync', 'done', `${mods.length} mod pronte`);
   }
 
   // STEP 3: Avvio gioco
