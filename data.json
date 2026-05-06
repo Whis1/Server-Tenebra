@@ -1,7 +1,7 @@
 {
   "launcher": {
-    "version": "1.4.3",
-    "notes": "Icone in formato Windows-compatibile (BMP)",
+    "version": "1.4.4",
+    "notes": "Icona smart: zoom sul teschio per dimensioni piccole",
     "url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraSetup.exe",
     "url_linux": "",
     "exe_url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher.exe",
