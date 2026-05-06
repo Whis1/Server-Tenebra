@@ -265,11 +265,13 @@
     <h1>SERVER<br/><em>TENEBRA</em></h1>
     <p class="hero-sub">Scarica il launcher per giocare con le mod sempre sincronizzate.</p>
     <div class="hero-cta">
-      <a class="btn-primary" id="dl-win" href="#" target="_blank">↓ Scarica il Launcher</a>
+      <a class="btn-primary" id="dl-win" href="#" target="_blank">⊞ Windows</a>
+      <a class="btn-secondary" id="dl-linux" href="#" target="_blank">🐧 Linux</a>
     </div>
     <p class="download-version" id="launcher-version" style="margin-top:32px;">Versione corrente: caricamento...</p>
     <div class="os-badges" style="margin-top:14px;">
       <span class="os-badge">Windows 10/11</span>
+      <span class="os-badge" id="badge-linux">Linux (presto)</span>
     </div>
   </div>
 
@@ -286,6 +288,20 @@
         const l = data.launcher || {};
         document.getElementById('launcher-version').textContent = 'Versione corrente: ' + (l.version || '—');
         if (l.url_windows) document.getElementById('dl-win').href = l.url_windows;
+
+        const dlLinux = document.getElementById('dl-linux');
+        const badgeLinux = document.getElementById('badge-linux');
+        if (l.url_linux) {
+          dlLinux.href = l.url_linux;
+          dlLinux.textContent = '🐧 Linux';
+          badgeLinux.textContent = 'Ubuntu / Arch';
+        } else {
+          dlLinux.textContent = '🐧 Linux — Presto';
+          dlLinux.style.opacity = '0.5';
+          dlLinux.style.cursor = 'not-allowed';
+          dlLinux.removeAttribute('href');
+          dlLinux.title = 'Il build Linux è in arrivo';
+        }
       } catch(e) {
         document.getElementById('launcher-version').textContent = 'Versione non disponibile';
       }
