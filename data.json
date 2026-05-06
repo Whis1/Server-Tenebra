@@ -1,7 +1,7 @@
 {
   "launcher": {
-    "version": "1.0.0",
-    "notes": "Prima release",
+    "version": "1.1.0",
+    "notes": "Interfaccia grafica completa",
     "url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher.exe",
     "url_linux": ""
   },
