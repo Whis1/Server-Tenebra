@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TENEBRA — Piattaforma VEIN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #080a0e;
+      --bg2:       #0d1017;
+      --surface:   #111520;
+      --border:    #1e2535;
+      --accent:    #c8302a;
+      --accent2:   #e8472f;
+      --gold:      #b8972a;
+      --text:      #d4cfc8;
+      --text-dim:  #6b6860;
+      --text-head: #ede8e0;
+      --red-glow:  rgba(200,48,42,0.18);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Crimson Pro', Georgia, serif;
+      font-weight: 300;
+      font-size: 17px;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999; opacity: .5;
+    }
+
+    nav {
+      position: fixed; top: 0; width: 100%; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 60px;
+      background: linear-gradient(180deg, rgba(8,10,14,.97) 0%, transparent 100%);
+      border-bottom: 1px solid rgba(200,48,42,.15);
+    }
+    .nav-logo {
+      font-family: 'Cinzel', serif;
+      font-size: 22px; font-weight: 900; letter-spacing: .18em;
+      color: var(--text-head);
+      text-decoration: none;
+    }
+    .nav-logo span { color: var(--accent); }
+    .nav-links { display: flex; gap: 36px; list-style: none; }
+    .nav-links a {
+      font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: .2em;
+      text-transform: uppercase; color: var(--text-dim);
+      text-decoration: none; transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--text-head); }
+
+    #hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 120px 40px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 50% 40%, rgba(200,48,42,.12) 0%, transparent 70%),
+        radial-gradient(ellipse 80% 60% at 50% 100%, rgba(184,151,42,.06) 0%, transparent 60%);
+    }
+    .hero-line {
+      position: absolute; top: 0; left: 50%; width: 1px; height: 100%;
+      background: linear-gradient(180deg, transparent, rgba(200,48,42,.25), transparent);
+    }
+    .hero-eyebrow {
+      font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: .4em;
+      color: var(--accent); text-transform: uppercase; margin-bottom: 24px;
+      animation: fadeUp .8s ease both;
+    }
+    h1 {
+      font-family: 'Cinzel', serif; font-weight: 900;
+      font-size: clamp(52px, 9vw, 110px);
+      line-height: .95; letter-spacing: .05em;
+      color: var(--text-head);
+      text-shadow: 0 0 80px rgba(200,48,42,.3);
+      animation: fadeUp .8s .15s ease both;
+    }
+    h1 em { color: var(--accent); font-style: normal; }
+    .hero-sub {
+      margin-top: 28px; max-width: 520px;
+      font-size: 19px; font-weight: 300; font-style: italic;
+      color: var(--text-dim); letter-spacing: .02em;
+      animation: fadeUp .8s .3s ease both;
+    }
+    .hero-cta {
+      margin-top: 52px; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;
+      animation: fadeUp .8s .45s ease both;
+    }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--accent);
+      color: #fff; font-family: 'Cinzel', serif;
+      font-size: 12px; letter-spacing: .2em; text-transform: uppercase;
+      padding: 16px 36px; text-decoration: none; border: none; cursor: pointer;
+      transition: background .2s, transform .15s, box-shadow .2s;
+      box-shadow: 0 0 30px rgba(200,48,42,.3);
+    }
+    .btn-primary:hover { background: var(--accent2); transform: translateY(-2px); box-shadow: 0 0 50px rgba(200,48,42,.5); }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: transparent; color: var(--text);
+      font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .2em; text-transform: uppercase;
+      padding: 15px 36px; text-decoration: none;
+      border: 1px solid var(--border); cursor: pointer;
+      transition: border-color .2s, color .2s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--text-head); }
+    .hero-scroll {
+      position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+      font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .3em;
+      color: var(--text-dim); display: flex; flex-direction: column; align-items: center; gap: 10px;
+      animation: fadeUp .8s .6s ease both;
+    }
+    .scroll-line {
+      width: 1px; height: 40px;
+      background: linear-gradient(180deg, var(--text-dim), transparent);
+      animation: scrollPulse 2s infinite;
+    }
+
+    section { padding: 100px 60px; max-width: 1200px; margin: 0 auto; }
+    .section-label {
+      font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .4em;
+      color: var(--accent); text-transform: uppercase; margin-bottom: 14px;
+    }
+    h2 {
+      font-family: 'Cinzel', serif; font-size: clamp(28px, 4vw, 44px);
+      font-weight: 700; color: var(--text-head); margin-bottom: 14px;
+      letter-spacing: .04em;
+    }
+    .section-rule {
+      width: 60px; height: 1px; background: var(--accent); margin-bottom: 48px;
+    }
+
+    #news { border-top: 1px solid var(--border); }
+    .news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+    .news-card {
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 32px; position: relative; overflow: hidden;
+      transition: border-color .2s, transform .2s;
+    }
+    .news-card::before {
+      content: ''; position: absolute; top: 0; left: 0;
+      width: 3px; height: 100%; background: var(--accent);
+      transform: scaleY(0); transform-origin: top;
+      transition: transform .3s ease;
+    }
+    .news-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .news-card:hover::before { transform: scaleY(1); }
+    .news-date { font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .25em; color: var(--gold); }
+    .news-tag {
+      display: inline-block; margin-left: 12px;
+      background: rgba(200,48,42,.15); color: var(--accent);
+      font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .2em;
+      padding: 2px 8px; text-transform: uppercase;
+    }
+    .news-title { font-family: 'Cinzel', serif; font-size: 17px; color: var(--text-head); margin: 12px 0 8px; }
+    .news-body { font-size: 15px; color: var(--text-dim); line-height: 1.65; }
+
+    #mods { border-top: 1px solid var(--border); background: var(--bg2); max-width: 100%; padding: 100px 60px; }
+    #mods > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
+    .mods-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
+    .mod-card {
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 28px; transition: border-color .2s, box-shadow .2s;
+    }
+    .mod-card:hover { border-color: var(--gold); box-shadow: 0 0 30px rgba(184,151,42,.08); }
+    .mod-version {
+      font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .2em;
+      color: var(--gold); float: right; padding: 2px 8px;
+      border: 1px solid rgba(184,151,42,.3);
+    }
+    .mod-name { font-family: 'Cinzel', serif; font-size: 16px; color: var(--text-head); margin: 8px 0 10px; }
+    .mod-desc { font-size: 15px; color: var(--text-dim); line-height: 1.6; }
+    .mod-footer { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 16px; align-items: center; }
+    .mod-size { font-family: 'Cinzel', serif; font-size: 10px; color: var(--text-dim); letter-spacing: .1em; }
+
+    #download {
+      border-top: 1px solid var(--border);
+      text-align: center; padding: 120px 60px;
+    }
+    .download-box {
+      max-width: 600px; margin: 0 auto;
+      background: var(--surface); border: 1px solid var(--border); padding: 60px 48px;
+      position: relative;
+    }
+    .download-box::after {
+      content: ''; position: absolute; inset: -1px;
+      background: linear-gradient(135deg, rgba(200,48,42,.2), transparent, rgba(184,151,42,.1));
+      pointer-events: none;
+    }
+    .download-icon { font-size: 48px; margin-bottom: 24px; }
+    .download-version {
+      font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: .3em;
+      color: var(--text-dim); margin-top: 28px;
+    }
+    .os-badges { display: flex; justify-content: center; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+    .os-badge {
+      font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .15em;
+      color: var(--text-dim); border: 1px solid var(--border); padding: 4px 14px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border); padding: 40px 60px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 20px;
+    }
+    .footer-logo { font-family: 'Cinzel', serif; font-size: 16px; color: var(--text-dim); letter-spacing: .2em; }
+    .footer-logo span { color: var(--accent); }
+    .footer-text { font-size: 13px; color: var(--text-dim); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes scrollPulse {
+      0%, 100% { opacity: .4; } 50% { opacity: 1; }
+    }
+
+    .loading-placeholder {
+      font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: .2em;
+      color: var(--text-dim); text-transform: uppercase; padding: 40px 0;
+    }
+
+    @media (max-width: 768px) {
+      nav { padding: 16px 24px; }
+      .nav-links { gap: 20px; }
+      section { padding: 70px 24px; }
+      #mods { padding: 70px 24px; }
+      footer { padding: 30px 24px; }
+      .download-box { padding: 40px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a class="nav-logo" href="#"><span>T</span>ENEBRA</a>
+    <ul class="nav-links">
+      <li><a href="#news">News</a></li>
+      <li><a href="#mods">Mod</a></li>
+      <li><a href="#download">Download</a></li>
+    </ul>
+  </nav>
+
+  <div id="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-line"></div>
+    <p class="hero-eyebrow">Piattaforma Ufficiale</p>
+    <h1>VEIN<br/><em>MODS</em></h1>
+    <p class="hero-sub">Scarica il launcher e gioca con le mod ufficiali. Aggiornamenti automatici, sempre sincronizzato.</p>
+    <div class="hero-cta">
+      <a class="btn-primary" href="#download">↓ Scarica il Launcher</a>
+      <a class="btn-secondary" href="#mods">Esplora le Mod</a>
+    </div>
+    <div class="hero-scroll">
+      <span>Scorri</span>
+      <div class="scroll-line"></div>
+    </div>
+  </div>
+
+  <section id="news">
+    <p class="section-label">Ultime notizie</p>
+    <h2>News & Aggiornamenti</h2>
+    <div class="section-rule"></div>
+    <div class="news-grid" id="news-list">
+      <div class="loading-placeholder">Caricamento news...</div>
+    </div>
+  </section>
+
+  <div id="mods">
+    <p class="section-label" style="max-width:1200px;margin:0 auto 14px;">Contenuti</p>
+    <h2 style="max-width:1200px;margin:0 auto 14px;">Mod Disponibili</h2>
+    <div class="section-rule" style="max-width:1200px;margin:0 auto 48px;"></div>
+    <div class="mods-grid" id="mods-list">
+      <div class="loading-placeholder">Caricamento mod...</div>
+    </div>
+  </div>
+
+  <section id="download">
+    <p class="section-label">Launcher</p>
+    <h2>Scarica Tenebra</h2>
+    <div class="section-rule" style="margin: 0 auto 48px;"></div>
+    <div class="download-box">
+      <div class="download-icon">⬛</div>
+      <h3 style="font-family:'Cinzel',serif;font-size:24px;color:var(--text-head);letter-spacing:.08em;">TENEBRA LAUNCHER</h3>
+      <p style="margin-top:16px;color:var(--text-dim);font-style:italic;">
+        Installa il launcher e tutte le mod vengono scaricate automaticamente nelle posizioni corrette. Aggiornamenti silenziosi ad ogni avvio.
+      </p>
+      <div style="margin-top:36px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+        <a class="btn-primary" id="dl-win" href="#" target="_blank">↓ Windows (.exe)</a>
+        <a class="btn-secondary" id="dl-linux" href="#" target="_blank">↓ Linux (.sh)</a>
+      </div>
+      <p class="download-version" id="launcher-version">Versione corrente: caricamento...</p>
+      <div class="os-badges">
+        <span class="os-badge">Windows 10/11</span>
+        <span class="os-badge">Ubuntu 20+</span>
+        <span class="os-badge">Arch Linux</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-logo"><span>T</span>ENEBRA</div>
+    <p class="footer-text">Piattaforma non ufficiale per VEIN. Solo uso privato.</p>
+  </footer>
+
+  <script>
+    // Carica i dati dal file data.json (relativo, stesso repo)
+    async function loadData() {
+      try {
+        const res = await fetch('data.json?t=' + Date.now());
+        const data = await res.json();
+
+        // ── NEWS ──
+        const newsList = document.getElementById('news-list');
+        const news = (data.news || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
+        if (!news.length) {
+          newsList.innerHTML = '<p class="loading-placeholder">Nessuna news al momento.</p>';
+        } else {
+          newsList.innerHTML = news.map(n => `
+            <div class="news-card">
+              <span class="news-date">${new Date(n.date).toLocaleDateString('it-IT')}</span>
+              <span class="news-tag">${n.tag || 'Aggiornamento'}</span>
+              <h3 class="news-title">${escapeHtml(n.title)}</h3>
+              <p class="news-body">${escapeHtml(n.body)}</p>
+            </div>
+          `).join('');
+        }
+
+        // ── MOD ──
+        const modsList = document.getElementById('mods-list');
+        const mods = (data.mods || []).filter(m => m.status !== 'disabled');
+        if (!mods.length) {
+          modsList.innerHTML = '<p class="loading-placeholder">Nessuna mod pubblicata.</p>';
+        } else {
+          modsList.innerHTML = mods.map(m => `
+            <div class="mod-card">
+              <span class="mod-version">v${escapeHtml(m.version)}</span>
+              <h3 class="mod-name">${escapeHtml(m.name)}</h3>
+              <p class="mod-desc">${escapeHtml(m.description || '')}</p>
+              <div class="mod-footer">
+                <span class="mod-size">📦 ${escapeHtml(m.size || '—')}</span>
+                <span class="mod-size" style="margin-left:auto;font-family:monospace;">${escapeHtml(m.path_windows || '')}</span>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        // ── LAUNCHER ──
+        const l = data.launcher || {};
+        document.getElementById('launcher-version').textContent = 'Versione corrente: ' + (l.version || '—');
+        if (l.url_windows) document.getElementById('dl-win').href = l.url_windows;
+        if (l.url_linux) document.getElementById('dl-linux').href = l.url_linux;
+      } catch(e) {
+        console.error(e);
+        document.getElementById('news-list').innerHTML = '<p class="loading-placeholder">Dati non disponibili.</p>';
+        document.getElementById('mods-list').innerHTML = '<p class="loading-placeholder">Dati non disponibili.</p>';
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

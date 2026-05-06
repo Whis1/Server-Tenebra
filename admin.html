@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TENEBRA — Admin Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Pro:wght@300;400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #070a0e; --surface: #0f1318; --surface2: #141920;
+      --border: #1d2535; --accent: #c8302a; --gold: #b8972a;
+      --text: #ccc8c0; --text-dim: #5a5850; --text-head: #ede8e0;
+      --success: #2a8a4a; --danger: #c8302a;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Crimson Pro', serif; font-size: 16px; display: flex; min-height: 100vh; }
+
+    aside {
+      width: 220px; min-height: 100vh; background: var(--surface);
+      border-right: 1px solid var(--border); padding: 32px 0;
+      position: fixed; top: 0; left: 0; bottom: 0;
+      display: flex; flex-direction: column;
+    }
+    .admin-logo {
+      font-family: 'Cinzel', serif; font-size: 16px; letter-spacing: .2em;
+      color: var(--text-head); padding: 0 24px 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .admin-logo span { color: var(--accent); }
+    nav { margin-top: 24px; flex: 1; }
+    .nav-item {
+      display: block; padding: 12px 24px; cursor: pointer;
+      font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: .18em;
+      text-transform: uppercase; color: var(--text-dim);
+      border-left: 2px solid transparent; transition: all .2s;
+    }
+    .nav-item:hover { color: var(--text-head); border-left-color: var(--border); }
+    .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(200,48,42,.06); }
+    .sidebar-footer { padding: 24px; border-top: 1px solid var(--border); }
+    .save-btn {
+      font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .2em;
+      color: var(--accent); cursor: pointer; transition: color .2s;
+      display: block; margin-bottom: 10px;
+    }
+    .save-btn:hover { color: var(--text-head); }
+
+    main { margin-left: 220px; flex: 1; padding: 40px 48px; max-width: calc(100% - 220px); }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 36px; padding-bottom: 20px; border-bottom: 1px solid var(--border);
+    }
+    .page-title { font-family: 'Cinzel', serif; font-size: 22px; color: var(--text-head); letter-spacing: .06em; }
+    .badge { background: var(--accent); color: #fff; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .15em; padding: 4px 12px; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); padding: 24px; }
+    .stat-label { font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .2em; color: var(--text-dim); text-transform: uppercase; }
+    .stat-value { font-family: 'Cinzel', serif; font-size: 36px; color: var(--text-head); margin-top: 8px; }
+
+    .table-wrapper { background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .2em;
+      text-transform: uppercase; color: var(--text-dim);
+      padding: 14px 20px; text-align: left; border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    td { padding: 14px 20px; border-bottom: 1px solid rgba(30,37,53,.5); font-size: 15px; color: var(--text); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .pill {
+      display: inline-block; font-family: 'Cinzel', serif; font-size: 9px;
+      letter-spacing: .15em; padding: 2px 10px; text-transform: uppercase;
+    }
+    .pill-green { background: rgba(42,138,74,.15); color: #4aaa74; border: 1px solid rgba(42,138,74,.3); }
+    .pill-gold { background: rgba(184,151,42,.12); color: var(--gold); border: 1px solid rgba(184,151,42,.3); }
+    .pill-red { background: rgba(200,48,42,.12); color: var(--accent); border: 1px solid rgba(200,48,42,.3); }
+
+    .form-card { background: var(--surface); border: 1px solid var(--border); padding: 32px; margin-bottom: 28px; }
+    .form-title { font-family: 'Cinzel', serif; font-size: 15px; color: var(--text-head); letter-spacing: .08em; margin-bottom: 24px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-full { grid-column: 1 / -1; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    label { font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .2em; color: var(--text-dim); text-transform: uppercase; }
+    input, textarea, select {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 10px 14px; font-family: 'Crimson Pro', serif; font-size: 15px;
+      outline: none; transition: border-color .2s; width: 100%;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 90px; }
+    select option { background: var(--surface); }
+    .hint { font-size: 13px; color: var(--text-dim); font-style: italic; margin-top: 4px; }
+
+    .btn { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border: none; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; padding: 11px 24px; transition: all .2s; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #e03530; }
+    .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: rgba(200,48,42,.15); color: var(--accent); border: 1px solid rgba(200,48,42,.3); }
+    .btn-danger:hover { background: rgba(200,48,42,.3); }
+    .btn-success { background: rgba(42,138,74,.2); color: #4aaa74; border: 1px solid rgba(42,138,74,.4); }
+    .btn-success:hover { background: rgba(42,138,74,.35); }
+    .btn-sm { padding: 6px 14px; font-size: 9px; }
+
+    .alert { padding: 14px 18px; margin-bottom: 20px; font-size: 14px; display: none; }
+    .alert-success { background: rgba(42,138,74,.12); border: 1px solid rgba(42,138,74,.3); color: #4aaa74; }
+    .alert-error { background: rgba(200,48,42,.12); border: 1px solid rgba(200,48,42,.3); color: var(--accent); }
+    .alert.show { display: block; }
+
+    .path-examples { background: var(--bg); border: 1px solid var(--border); padding: 16px; margin-top: 8px; }
+    .path-ex { font-family: monospace; font-size: 13px; color: var(--gold); display: block; margin: 3px 0; }
+    .path-label { font-size: 12px; color: var(--text-dim); }
+
+    .sync-banner {
+      background: linear-gradient(135deg, rgba(184,151,42,.1), rgba(200,48,42,.05));
+      border: 1px solid rgba(184,151,42,.3);
+      padding: 20px 24px; margin-bottom: 28px;
+      display: flex; justify-content: space-between; align-items: center; gap: 20px;
+      flex-wrap: wrap;
+    }
+    .sync-info { font-size: 14px; color: var(--text); line-height: 1.6; flex: 1; min-width: 250px; }
+    .sync-info strong { color: var(--gold); font-family: 'Cinzel', serif; letter-spacing: .1em; }
+    .sync-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .help-block { background: var(--surface); border: 1px solid var(--border); padding: 24px; margin-bottom: 28px; line-height: 1.7; }
+    .help-block h3 { font-family: 'Cinzel', serif; font-size: 14px; color: var(--text-head); letter-spacing: .1em; margin-bottom: 14px; }
+    .help-block ol { padding-left: 20px; color: var(--text-dim); }
+    .help-block li { margin-bottom: 6px; }
+    .help-block code { font-family: monospace; background: var(--bg); padding: 2px 8px; color: var(--gold); font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<aside>
+  <div class="admin-logo"><span>T</span>ENEBRA <span style="font-size:10px;color:var(--text-dim);display:block;letter-spacing:.15em;margin-top:2px;">ADMIN</span></div>
+  <nav>
+    <div class="nav-item active" onclick="showPage('dashboard', this)">📊 Dashboard</div>
+    <div class="nav-item" onclick="showPage('mods', this)">🔧 Mod</div>
+    <div class="nav-item" onclick="showPage('news', this)">📰 News</div>
+    <div class="nav-item" onclick="showPage('launcher', this)">🚀 Launcher</div>
+    <div class="nav-item" onclick="showPage('sync', this)">💾 Salva / Carica</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="save-btn" onclick="exportData()">⬇ Esporta data.json</div>
+    <div style="font-size:11px;color:var(--text-dim);font-style:italic;line-height:1.5;">Le modifiche vengono salvate automaticamente in questo browser.</div>
+  </div>
+</aside>
+
+<main>
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="topbar">
+      <h1 class="page-title">Dashboard</h1>
+      <span class="badge">Locale</span>
+    </div>
+
+    <div class="sync-banner">
+      <div class="sync-info">
+        <strong>📌 IMPORTANTE</strong><br/>
+        Le tue modifiche vengono salvate solo in questo browser. Per pubblicarle online devi <strong>esportare</strong> il file <code style="font-family:monospace;color:var(--gold)">data.json</code> e caricarlo su GitHub. Vai alla sezione <strong>Salva / Carica</strong> per le istruzioni.
+      </div>
+      <div class="sync-actions">
+        <button class="btn btn-success" onclick="exportData()">⬇ Esporta data.json</button>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Mod Attive</div><div class="stat-value" id="stat-mods">0</div></div>
+      <div class="stat-card"><div class="stat-label">News Pubblicate</div><div class="stat-value" id="stat-news">0</div></div>
+      <div class="stat-card"><div class="stat-label">Versione Launcher</div><div class="stat-value" id="stat-ver" style="font-size:22px;margin-top:14px;">—</div></div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Mod</th><th>Versione</th><th>Percorso (Windows)</th><th>Stato</th></tr></thead>
+        <tbody id="dash-mods-table"><tr><td colspan="4" style="color:var(--text-dim);font-style:italic;">Nessuna mod ancora.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MOD MANAGER -->
+  <div class="page" id="page-mods">
+    <div class="topbar">
+      <h1 class="page-title">Gestione Mod</h1>
+    </div>
+    <div id="alert-mods" class="alert"></div>
+
+    <div class="form-card">
+      <div class="form-title">➕ Aggiungi / Aggiorna Mod</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nome Mod *</label>
+          <input type="text" id="mod-name" placeholder="es. AsteriaWeapons" />
+        </div>
+        <div class="form-group">
+          <label>Versione *</label>
+          <input type="text" id="mod-version" placeholder="es. 1.2.0" />
+        </div>
+        <div class="form-group form-full">
+          <label>Descrizione</label>
+          <textarea id="mod-desc" placeholder="Descrizione della mod visibile agli utenti..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>URL Download File Mod *</label>
+          <input type="text" id="mod-url" placeholder="https://..." />
+          <p class="hint">Link diretto al .zip o .pak della mod (GitHub Releases, Dropbox, ecc.)</p>
+        </div>
+        <div class="form-group">
+          <label>Dimensione (es. 45 MB)</label>
+          <input type="text" id="mod-size" placeholder="45 MB" />
+        </div>
+        <div class="form-group form-full">
+          <label>Percorso installazione Windows *</label>
+          <input type="text" id="mod-path-win" placeholder="VEIN\Content\Paks\~mods\" />
+          <div class="path-examples">
+            <span class="path-label">Esempi percorsi tipici per giochi Unreal Engine:</span>
+            <span class="path-ex">VEIN\Content\Paks\~mods\</span>
+            <span class="path-ex">VEIN\Mods\</span>
+            <span class="path-ex">VEIN\Data\Mods\</span>
+            <span class="path-label">Il launcher chiederà all'utente dove ha installato VEIN e aggiungerà questo percorso.</span>
+          </div>
+        </div>
+        <div class="form-group form-full">
+          <label>Percorso installazione Linux *</label>
+          <input type="text" id="mod-path-linux" placeholder="VEIN/Content/Paks/~mods/" />
+          <div class="path-examples">
+            <span class="path-ex">VEIN/Content/Paks/~mods/</span>
+            <span class="path-ex">~/.local/share/VEIN/Mods/</span>
+            <span class="path-label">Per Linux il percorso è relativo alla cartella VEIN o assoluto con ~/.local</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Stato</label>
+          <select id="mod-status">
+            <option value="active">Attiva (visibile e scaricata)</option>
+            <option value="beta">Beta (visibile, segnalata)</option>
+            <option value="disabled">Disabilitata (non scaricata)</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:24px;display:flex;gap:12px;">
+        <button class="btn btn-primary" onclick="saveMod()">💾 Salva Mod</button>
+        <button class="btn btn-ghost" onclick="clearModForm()">✕ Pulisci</button>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Nome</th><th>Versione</th><th>Percorso Win</th><th>Stato</th><th>Azioni</th></tr></thead>
+        <tbody id="mods-table"><tr><td colspan="5" style="color:var(--text-dim);font-style:italic;">Nessuna mod ancora.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- NEWS -->
+  <div class="page" id="page-news">
+    <div class="topbar"><h1 class="page-title">Gestione News</h1></div>
+    <div id="alert-news" class="alert"></div>
+    <div class="form-card">
+      <div class="form-title">📰 Pubblica News</div>
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label>Titolo *</label>
+          <input type="text" id="news-title" placeholder="Titolo della news..." />
+        </div>
+        <div class="form-group">
+          <label>Tag</label>
+          <select id="news-tag">
+            <option>Aggiornamento</option>
+            <option>Nuova Mod</option>
+            <option>Manutenzione</option>
+            <option>Annuncio</option>
+            <option>Hotfix</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Data</label>
+          <input type="date" id="news-date" />
+        </div>
+        <div class="form-group form-full">
+          <label>Testo *</label>
+          <textarea id="news-body" style="min-height:130px;" placeholder="Corpo della news..."></textarea>
+        </div>
+      </div>
+      <div style="margin-top:24px;"><button class="btn btn-primary" onclick="saveNews()">📤 Pubblica</button></div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Data</th><th>Tag</th><th>Titolo</th><th>Azioni</th></tr></thead>
+        <tbody id="news-table"><tr><td colspan="4" style="color:var(--text-dim);font-style:italic;">Nessuna news ancora.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- LAUNCHER -->
+  <div class="page" id="page-launcher">
+    <div class="topbar"><h1 class="page-title">Gestione Launcher</h1></div>
+    <div id="alert-launcher" class="alert"></div>
+    <div class="form-card">
+      <div class="form-title">🚀 Versione & Download Launcher</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Versione Corrente *</label>
+          <input type="text" id="l-version" placeholder="es. 1.0.4" />
+        </div>
+        <div class="form-group">
+          <label>Note di rilascio</label>
+          <input type="text" id="l-notes" placeholder="es. Bugfix path detection" />
+        </div>
+        <div class="form-group form-full">
+          <label>URL Download Windows (.exe)</label>
+          <input type="text" id="l-url-win" placeholder="https://..." />
+          <p class="hint">Link diretto all'installer .exe del launcher (es. GitHub Releases)</p>
+        </div>
+        <div class="form-group form-full">
+          <label>URL Download Linux (.sh)</label>
+          <input type="text" id="l-url-linux" placeholder="https://..." />
+          <p class="hint">Link diretto allo script .sh per Linux (opzionale)</p>
+        </div>
+      </div>
+      <div style="margin-top:24px;"><button class="btn btn-primary" onclick="saveLauncher()">💾 Salva Launcher</button></div>
+    </div>
+  </div>
+
+  <!-- SYNC / SAVE / LOAD -->
+  <div class="page" id="page-sync">
+    <div class="topbar"><h1 class="page-title">Salva / Carica</h1></div>
+    <div id="alert-sync" class="alert"></div>
+
+    <div class="help-block">
+      <h3>📋 Come funziona</h3>
+      <p style="color:var(--text);margin-bottom:14px;">
+        Tutto quello che modifichi qui viene salvato <strong style="color:var(--gold)">solo nel tuo browser</strong>. Per metterlo online devi:
+      </p>
+      <ol>
+        <li>Cliccare <strong>"⬇ Esporta data.json"</strong> qui sotto — scarica un file</li>
+        <li>Andare sul tuo repository GitHub (l'ho creato per te seguendo la guida)</li>
+        <li>Cliccare sul file <code>data.json</code> esistente</li>
+        <li>Cliccare l'icona della <strong>matita</strong> (✏ Edit) in alto a destra</li>
+        <li>Cancellare il contenuto vecchio, incollare quello nuovo, e cliccare <strong>"Commit changes"</strong></li>
+        <li>Fatto! Sito e launcher si aggiornano automaticamente entro qualche minuto.</li>
+      </ol>
+    </div>
+
+    <div class="form-card">
+      <div class="form-title">⬇ Esporta (per pubblicare)</div>
+      <p style="color:var(--text-dim);margin-bottom:20px;">Scarica il file <code style="font-family:monospace;color:var(--gold);background:var(--bg);padding:2px 8px;">data.json</code> con i tuoi dati attuali, da caricare su GitHub.</p>
+      <button class="btn btn-success" onclick="exportData()" style="font-size:13px;padding:14px 32px;">⬇ Esporta data.json</button>
+    </div>
+
+    <div class="form-card">
+      <div class="form-title">⬆ Importa (per caricare dati esistenti)</div>
+      <p style="color:var(--text-dim);margin-bottom:20px;">Se hai già un <code style="font-family:monospace;color:var(--gold);background:var(--bg);padding:2px 8px;">data.json</code> (es. lo hai scaricato da GitHub), caricalo qui per modificarlo.</p>
+      <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)" />
+      <button class="btn btn-ghost" onclick="document.getElementById('import-file').click()" style="font-size:13px;padding:14px 32px;">⬆ Carica file data.json</button>
+    </div>
+
+    <div class="form-card">
+      <div class="form-title">🗑 Reset</div>
+      <p style="color:var(--text-dim);margin-bottom:20px;">Cancella tutti i dati locali e ricomincia da zero. Non tocca quelli online.</p>
+      <button class="btn btn-danger" onclick="resetAll()" style="font-size:13px;padding:14px 32px;">🗑 Cancella tutto</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // ── STORAGE ──
+  const STORAGE_KEY = 'tenebra_data_v1';
+  let DATA = loadFromStorage();
+
+  function defaultData() {
+    return {
+      launcher: { version: '1.0.0', notes: 'Prima release', url_windows: '', url_linux: '' },
+      mods: [],
+      news: []
+    };
+  }
+
+  function loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultData();
+      const d = JSON.parse(raw);
+      return {
+        launcher: d.launcher || defaultData().launcher,
+        mods: Array.isArray(d.mods) ? d.mods : [],
+        news: Array.isArray(d.news) ? d.news : []
+      };
+    } catch(e) { return defaultData(); }
+  }
+
+  function saveToStorage() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+  }
+
+  // ── ID GENERATOR ──
+  function genId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  }
+
+  // ── NAV ──
+  function showPage(id, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    if (el) el.classList.add('active');
+  }
+
+  // ── ALERT ──
+  function showAlert(id, msg, type='success') {
+    const el = document.getElementById('alert-' + id);
+    if (!el) return;
+    el.className = 'alert alert-' + type + ' show';
+    el.textContent = msg;
+    setTimeout(() => el.classList.remove('show'), 4000);
+  }
+
+  // ── ESCAPE HTML ──
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ── RENDER ──
+  function render() {
+    // Stats
+    document.getElementById('stat-mods').textContent = DATA.mods.filter(m => m.status === 'active').length;
+    document.getElementById('stat-news').textContent = DATA.news.length;
+    document.getElementById('stat-ver').textContent = DATA.launcher.version || '—';
+
+    const statusPill = s => s === 'active' ? 'pill-green' : s === 'beta' ? 'pill-gold' : 'pill-red';
+
+    // Mods table
+    const tbody = document.getElementById('mods-table');
+    const dbody = document.getElementById('dash-mods-table');
+    if (!DATA.mods.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-dim);font-style:italic;">Nessuna mod ancora.</td></tr>';
+      dbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-dim);font-style:italic;">Nessuna mod ancora.</td></tr>';
+    } else {
+      tbody.innerHTML = DATA.mods.map(m => `
+        <tr>
+          <td><strong style="color:var(--text-head)">${esc(m.name)}</strong></td>
+          <td>${esc(m.version)}</td>
+          <td style="font-family:monospace;font-size:13px;color:var(--gold)">${esc(m.path_windows || '—')}</td>
+          <td><span class="pill ${statusPill(m.status)}">${esc(m.status)}</span></td>
+          <td><button class="btn btn-ghost btn-sm" onclick="editMod('${m.id}')">✏ Modifica</button>
+              <button class="btn btn-danger btn-sm" style="margin-left:6px" onclick="deleteMod('${m.id}')">✕</button></td>
+        </tr>`).join('');
+      dbody.innerHTML = DATA.mods.map(m => `
+        <tr>
+          <td><strong style="color:var(--text-head)">${esc(m.name)}</strong></td>
+          <td>${esc(m.version)}</td>
+          <td style="font-family:monospace;font-size:13px;color:var(--gold)">${esc(m.path_windows || '—')}</td>
+          <td><span class="pill ${statusPill(m.status)}">${esc(m.status)}</span></td>
+        </tr>`).join('');
+    }
+
+    // News table
+    const ntbody = document.getElementById('news-table');
+    if (!DATA.news.length) {
+      ntbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-dim);font-style:italic;">Nessuna news ancora.</td></tr>';
+    } else {
+      const sorted = [...DATA.news].sort((a,b) => new Date(b.date) - new Date(a.date));
+      ntbody.innerHTML = sorted.map(n => `
+        <tr>
+          <td>${new Date(n.date).toLocaleDateString('it-IT')}</td>
+          <td><span class="pill pill-gold">${esc(n.tag)}</span></td>
+          <td><strong style="color:var(--text-head)">${esc(n.title)}</strong></td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteNews('${n.id}')">✕ Elimina</button></td>
+        </tr>`).join('');
+    }
+
+    // Launcher form
+    document.getElementById('l-version').value = DATA.launcher.version || '';
+    document.getElementById('l-notes').value = DATA.launcher.notes || '';
+    document.getElementById('l-url-win').value = DATA.launcher.url_windows || '';
+    document.getElementById('l-url-linux').value = DATA.launcher.url_linux || '';
+  }
+
+  // ── MODS CRUD ──
+  function saveMod() {
+    const id = document.getElementById('mod-name').dataset.editId;
+    const mod = {
+      id: id || genId(),
+      name: document.getElementById('mod-name').value.trim(),
+      version: document.getElementById('mod-version').value.trim(),
+      description: document.getElementById('mod-desc').value.trim(),
+      url: document.getElementById('mod-url').value.trim(),
+      size: document.getElementById('mod-size').value.trim(),
+      path_windows: document.getElementById('mod-path-win').value.trim(),
+      path_linux: document.getElementById('mod-path-linux').value.trim(),
+      status: document.getElementById('mod-status').value
+    };
+    if (!mod.name || !mod.version || !mod.url || !mod.path_windows) {
+      showAlert('mods', 'Compila i campi obbligatori (*).', 'error'); return;
+    }
+    if (id) {
+      const idx = DATA.mods.findIndex(m => m.id === id);
+      if (idx >= 0) DATA.mods[idx] = mod;
+      showAlert('mods', 'Mod aggiornata!');
+    } else {
+      DATA.mods.push(mod);
+      showAlert('mods', 'Mod aggiunta!');
+    }
+    saveToStorage();
+    clearModForm();
+    render();
+  }
+
+  function editMod(id) {
+    const m = DATA.mods.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('mod-name').value = m.name;
+    document.getElementById('mod-name').dataset.editId = m.id;
+    document.getElementById('mod-version').value = m.version;
+    document.getElementById('mod-desc').value = m.description || '';
+    document.getElementById('mod-url').value = m.url || '';
+    document.getElementById('mod-size').value = m.size || '';
+    document.getElementById('mod-path-win').value = m.path_windows || '';
+    document.getElementById('mod-path-linux').value = m.path_linux || '';
+    document.getElementById('mod-status').value = m.status || 'active';
+    window.scrollTo(0,0);
+  }
+
+  function deleteMod(id) {
+    if (!confirm('Eliminare questa mod?')) return;
+    DATA.mods = DATA.mods.filter(m => m.id !== id);
+    saveToStorage();
+    render();
+    showAlert('mods', 'Mod eliminata.');
+  }
+
+  function clearModForm() {
+    ['mod-name','mod-version','mod-desc','mod-url','mod-size','mod-path-win','mod-path-linux'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('mod-name').dataset.editId = '';
+    document.getElementById('mod-status').value = 'active';
+  }
+
+  // ── NEWS CRUD ──
+  function saveNews() {
+    const news = {
+      id: genId(),
+      title: document.getElementById('news-title').value.trim(),
+      tag: document.getElementById('news-tag').value,
+      date: document.getElementById('news-date').value || new Date().toISOString().slice(0,10),
+      body: document.getElementById('news-body').value.trim()
+    };
+    if (!news.title || !news.body) { showAlert('news','Titolo e testo obbligatori.','error'); return; }
+    DATA.news.unshift(news);
+    saveToStorage();
+    render();
+    document.getElementById('news-title').value = '';
+    document.getElementById('news-body').value = '';
+    showAlert('news', 'News pubblicata!');
+  }
+
+  function deleteNews(id) {
+    if (!confirm('Eliminare questa news?')) return;
+    DATA.news = DATA.news.filter(n => n.id !== id);
+    saveToStorage();
+    render();
+    showAlert('news', 'News eliminata.');
+  }
+
+  // ── LAUNCHER ──
+  function saveLauncher() {
+    DATA.launcher = {
+      version: document.getElementById('l-version').value.trim(),
+      notes: document.getElementById('l-notes').value.trim(),
+      url_windows: document.getElementById('l-url-win').value.trim(),
+      url_linux: document.getElementById('l-url-linux').value.trim()
+    };
+    if (!DATA.launcher.version) { showAlert('launcher','La versione è obbligatoria.','error'); return; }
+    saveToStorage();
+    render();
+    showAlert('launcher', 'Launcher salvato!');
+  }
+
+  // ── EXPORT / IMPORT ──
+  function exportData() {
+    const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showAlert('sync', 'File data.json scaricato! Caricalo ora su GitHub.');
+  }
+
+  function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const d = JSON.parse(e.target.result);
+        DATA = {
+          launcher: d.launcher || defaultData().launcher,
+          mods: Array.isArray(d.mods) ? d.mods : [],
+          news: Array.isArray(d.news) ? d.news : []
+        };
+        // Aggiungi id mancanti
+        DATA.mods.forEach(m => { if (!m.id) m.id = genId(); });
+        DATA.news.forEach(n => { if (!n.id) n.id = genId(); });
+        saveToStorage();
+        render();
+        showAlert('sync', 'Dati importati con successo!');
+      } catch(e) {
+        showAlert('sync', 'File non valido: ' + e.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
+  function resetAll() {
+    if (!confirm('Cancellare tutti i dati locali? Quelli online non vengono toccati.')) return;
+    DATA = defaultData();
+    saveToStorage();
+    render();
+    showAlert('sync', 'Dati locali resettati.');
+  }
+
+  // ── INIT ──
+  document.getElementById('news-date').value = new Date().toISOString().slice(0,10);
+  render();
+</script>
+</body>
+</html>
