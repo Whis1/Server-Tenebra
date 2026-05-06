@@ -3,9 +3,9 @@
     "version": "1.4.4",
     "notes": "Icona smart: zoom sul teschio per dimensioni piccole",
     "url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraSetup.exe",
-    "url_linux": "",
+    "url_linux": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher",
     "exe_url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher.exe",
-    "exe_url_linux": ""
+    "exe_url_linux": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher"
   },
   "mods": [
     {
