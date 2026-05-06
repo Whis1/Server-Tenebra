@@ -256,69 +256,22 @@
 
   <nav>
     <a class="nav-logo" href="#"><span>T</span>ENEBRA</a>
-    <ul class="nav-links">
-      <li><a href="#news">News</a></li>
-      <li><a href="#mods">Mod</a></li>
-      <li><a href="#download">Download</a></li>
-    </ul>
   </nav>
 
   <div id="hero">
     <div class="hero-bg"></div>
     <div class="hero-line"></div>
     <p class="hero-eyebrow">Piattaforma Ufficiale</p>
-    <h1>VEIN<br/><em>MODS</em></h1>
-    <p class="hero-sub">Scarica il launcher e gioca con le mod ufficiali. Aggiornamenti automatici, sempre sincronizzato.</p>
+    <h1>SERVER<br/><em>TENEBRA</em></h1>
+    <p class="hero-sub">Scarica il launcher per giocare con le mod sempre sincronizzate.</p>
     <div class="hero-cta">
-      <a class="btn-primary" href="#download">↓ Scarica il Launcher</a>
-      <a class="btn-secondary" href="#mods">Esplora le Mod</a>
+      <a class="btn-primary" id="dl-win" href="#" target="_blank">↓ Scarica il Launcher</a>
     </div>
-    <div class="hero-scroll">
-      <span>Scorri</span>
-      <div class="scroll-line"></div>
-    </div>
-  </div>
-
-  <section id="news">
-    <p class="section-label">Ultime notizie</p>
-    <h2>News & Aggiornamenti</h2>
-    <div class="section-rule"></div>
-    <div class="news-grid" id="news-list">
-      <div class="loading-placeholder">Caricamento news...</div>
-    </div>
-  </section>
-
-  <div id="mods">
-    <p class="section-label" style="max-width:1200px;margin:0 auto 14px;">Contenuti</p>
-    <h2 style="max-width:1200px;margin:0 auto 14px;">Mod Disponibili</h2>
-    <div class="section-rule" style="max-width:1200px;margin:0 auto 48px;"></div>
-    <div class="mods-grid" id="mods-list">
-      <div class="loading-placeholder">Caricamento mod...</div>
+    <p class="download-version" id="launcher-version" style="margin-top:32px;">Versione corrente: caricamento...</p>
+    <div class="os-badges" style="margin-top:14px;">
+      <span class="os-badge">Windows 10/11</span>
     </div>
   </div>
-
-  <section id="download">
-    <p class="section-label">Launcher</p>
-    <h2>Scarica Tenebra</h2>
-    <div class="section-rule" style="margin: 0 auto 48px;"></div>
-    <div class="download-box">
-      <div class="download-icon">⬛</div>
-      <h3 style="font-family:'Cinzel',serif;font-size:24px;color:var(--text-head);letter-spacing:.08em;">TENEBRA LAUNCHER</h3>
-      <p style="margin-top:16px;color:var(--text-dim);font-style:italic;">
-        Installa il launcher e tutte le mod vengono scaricate automaticamente nelle posizioni corrette. Aggiornamenti silenziosi ad ogni avvio.
-      </p>
-      <div style="margin-top:36px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
-        <a class="btn-primary" id="dl-win" href="#" target="_blank">↓ Windows (.exe)</a>
-        <a class="btn-secondary" id="dl-linux" href="#" target="_blank">↓ Linux (.sh)</a>
-      </div>
-      <p class="download-version" id="launcher-version">Versione corrente: caricamento...</p>
-      <div class="os-badges">
-        <span class="os-badge">Windows 10/11</span>
-        <span class="os-badge">Ubuntu 20+</span>
-        <span class="os-badge">Arch Linux</span>
-      </div>
-    </div>
-  </section>
 
   <footer>
     <div class="footer-logo"><span>T</span>ENEBRA</div>
@@ -326,63 +279,17 @@
   </footer>
 
   <script>
-    // Carica i dati dal file data.json (relativo, stesso repo)
     async function loadData() {
       try {
         const res = await fetch('data.json?t=' + Date.now());
         const data = await res.json();
-
-        // ── NEWS ──
-        const newsList = document.getElementById('news-list');
-        const news = (data.news || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
-        if (!news.length) {
-          newsList.innerHTML = '<p class="loading-placeholder">Nessuna news al momento.</p>';
-        } else {
-          newsList.innerHTML = news.map(n => `
-            <div class="news-card">
-              <span class="news-date">${new Date(n.date).toLocaleDateString('it-IT')}</span>
-              <span class="news-tag">${n.tag || 'Aggiornamento'}</span>
-              <h3 class="news-title">${escapeHtml(n.title)}</h3>
-              <p class="news-body">${escapeHtml(n.body)}</p>
-            </div>
-          `).join('');
-        }
-
-        // ── MOD ──
-        const modsList = document.getElementById('mods-list');
-        const mods = (data.mods || []).filter(m => m.status !== 'disabled');
-        if (!mods.length) {
-          modsList.innerHTML = '<p class="loading-placeholder">Nessuna mod pubblicata.</p>';
-        } else {
-          modsList.innerHTML = mods.map(m => `
-            <div class="mod-card">
-              <span class="mod-version">v${escapeHtml(m.version)}</span>
-              <h3 class="mod-name">${escapeHtml(m.name)}</h3>
-              <p class="mod-desc">${escapeHtml(m.description || '')}</p>
-              <div class="mod-footer">
-                <span class="mod-size">📦 ${escapeHtml(m.size || '—')}</span>
-                <span class="mod-size" style="margin-left:auto;font-family:monospace;">${escapeHtml(m.path_windows || '')}</span>
-              </div>
-            </div>
-          `).join('');
-        }
-
-        // ── LAUNCHER ──
         const l = data.launcher || {};
         document.getElementById('launcher-version').textContent = 'Versione corrente: ' + (l.version || '—');
         if (l.url_windows) document.getElementById('dl-win').href = l.url_windows;
-        if (l.url_linux) document.getElementById('dl-linux').href = l.url_linux;
       } catch(e) {
-        console.error(e);
-        document.getElementById('news-list').innerHTML = '<p class="loading-placeholder">Dati non disponibili.</p>';
-        document.getElementById('mods-list').innerHTML = '<p class="loading-placeholder">Dati non disponibili.</p>';
+        document.getElementById('launcher-version').textContent = 'Versione non disponibile';
       }
     }
-
-    function escapeHtml(s) {
-      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
-
     loadData();
   </script>
 </body>
