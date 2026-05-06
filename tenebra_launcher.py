@@ -24,7 +24,7 @@ import webview
 # CONFIGURAZIONE
 # ============================================================
 DATA_URL = "https://raw.githubusercontent.com/Whis1/Server-Tenebra/main/data.json"
-LAUNCHER_VERSION = "1.4.4"
+LAUNCHER_VERSION = "1.4.5"
 GAME_NAME = "VEIN"
 GAME_FOLDER_NAME = "Vein"  # nome cartella sotto steamapps/common
 # ============================================================
