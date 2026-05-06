@@ -1,9 +1,11 @@
 {
   "launcher": {
-    "version": "1.2.0",
-    "notes": "Vista libreria + auto-detect Steam",
-    "url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher.exe",
-    "url_linux": ""
+    "version": "1.3.0",
+    "notes": "Installer Windows + auto-update",
+    "url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraSetup.exe",
+    "url_linux": "",
+    "exe_url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher.exe",
+    "exe_url_linux": ""
   },
   "mods": [],
   "news": []
