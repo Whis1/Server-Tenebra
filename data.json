@@ -1,7 +1,7 @@
 {
   "launcher": {
-    "version": "1.3.0",
-    "notes": "Installer Windows + auto-update",
+    "version": "1.4.0",
+    "notes": "Click VEIN = installa mod + avvio in un solo passo",
     "url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraSetup.exe",
     "url_linux": "",
     "exe_url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher.exe",
