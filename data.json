@@ -1,7 +1,7 @@
 {
   "launcher": {
-    "version": "1.5.0",
-    "notes": "Modalita' isolata: mod copiate in VEIN solo durante il gioco, rimosse alla chiusura",
+    "version": "1.5.1",
+    "notes": "Avviso 'non chiudere il launcher' nella schermata di lancio",
     "url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraSetup.exe",
     "url_linux": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher",
     "exe_url_windows": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraLauncher.exe",

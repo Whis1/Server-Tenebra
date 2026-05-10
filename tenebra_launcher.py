@@ -25,7 +25,7 @@ import webview
 # CONFIGURAZIONE
 # ============================================================
 DATA_URL = "https://raw.githubusercontent.com/Whis1/Server-Tenebra/main/data.json"
-LAUNCHER_VERSION = "1.5.0"
+LAUNCHER_VERSION = "1.5.1"
 GAME_NAME = "VEIN"
 GAME_FOLDER_NAME = "Vein"  # nome cartella sotto steamapps/common
 # ============================================================
@@ -1084,6 +1084,21 @@ HTML = """<!DOCTYPE html>
   .modal p { color: var(--text); margin-bottom: 14px; line-height: 1.7; font-size: 14px; }
   .modal .small { color: var(--text-dim); font-size: 12px; font-style: italic; text-align: center; }
 
+  .launch-warning {
+    background: linear-gradient(90deg, rgba(184,151,42,.18), rgba(200,48,42,.12));
+    border: 1px solid rgba(184,151,42,.5);
+    padding: 14px 16px; margin-bottom: 22px;
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .warning-icon {
+    font-size: 22px; line-height: 1; color: var(--gold);
+    flex-shrink: 0; padding-top: 2px;
+  }
+  .warning-text {
+    font-size: 13px; line-height: 1.55; color: var(--text);
+  }
+  .warning-text strong { color: var(--gold); font-family: 'Cinzel', serif; letter-spacing: .05em; font-weight: 700; }
+
   .steps { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
   .step {
     display: flex; align-items: center; gap: 14px;
@@ -1185,6 +1200,15 @@ HTML = """<!DOCTYPE html>
 <div class="modal" id="modal-launch">
   <div class="modal-box">
     <h3 id="launch-title">Avvio <span>VEIN</span></h3>
+
+    <div class="launch-warning" id="launch-warning">
+      <div class="warning-icon">⚠</div>
+      <div class="warning-text">
+        <strong>NON CHIUDERE QUESTO LAUNCHER</strong> prima di aver chiuso VEIN.<br/>
+        Quando finisci di giocare: <strong>1.</strong> chiudi VEIN — <strong>2.</strong> aspetta che il launcher ripristini i file originali — <strong>3.</strong> poi puoi chiudere il launcher.<br/>
+        Se chiudi il launcher mentre il gioco è aperto, le mod restano nei file di VEIN finché non lo riapri.
+      </div>
+    </div>
 
     <div class="steps">
       <div class="step" id="step-detect">
