@@ -25,7 +25,7 @@ import webview
 # CONFIGURAZIONE
 # ============================================================
 DATA_URL = "https://raw.githubusercontent.com/Whis1/Server-Tenebra/main/data.json"
-LAUNCHER_VERSION = "1.5.2"
+LAUNCHER_VERSION = "1.5.3"
 GAME_NAME = "VEIN"
 GAME_FOLDER_NAME = "Vein"  # nome cartella sotto steamapps/common
 # ============================================================
@@ -604,7 +604,7 @@ class Api:
                 self._cleanup_session(silent=True)
 
             # 2) Deploy mod
-            self.js("setLaunchStep('deploy', 'active', 'Inserisco le mod in VEIN (con backup vanilla)...')")
+            self.js("setLaunchStep('deploy', 'active', 'Inserisco le mod in VEIN (i tuoi file vengono salvati)...')")
             res = self._deploy_session(mod_root)
             if not res.get("ok"):
                 self.js("setLaunchStep('deploy', 'error', 'Deploy fallito')")
@@ -650,10 +650,10 @@ class Api:
                 self.js("setLaunchStep('playing', 'done', 'VEIN chiuso')")
 
             # 6) Cleanup
-            self.js("setLaunchStep('cleanup', 'active', 'Rimuovo le mod, ripristino vanilla...')")
+            self.js("setLaunchStep('cleanup', 'active', 'Rimuovo le mod, ripristino i tuoi file...')")
             cres = self._cleanup_session()
             if cres.get("ok"):
-                msg = "Vanilla ripristinato (" + str(cres["removed"]) + " rimossi, " + str(cres["restored"]) + " ripristinati)"
+                msg = "Tutto ripristinato (" + str(cres["removed"]) + " mod rimossi, " + str(cres["restored"]) + " file ripristinati)"
                 self.js("setLaunchStep('cleanup', 'done', '" + msg + "')")
             else:
                 self.js("setLaunchStep('cleanup', 'error', 'Errore durante cleanup')")
@@ -1205,7 +1205,7 @@ HTML = """<!DOCTYPE html>
       <div class="warning-icon">⚠</div>
       <div class="warning-text">
         <strong>NON CHIUDERE QUESTO LAUNCHER</strong> prima di aver chiuso VEIN.<br/>
-        Quando finisci di giocare: <strong>1.</strong> chiudi VEIN — <strong>2.</strong> aspetta che il launcher ripristini i file originali — <strong>3.</strong> poi puoi chiudere il launcher.<br/>
+        Quando finisci di giocare: <strong>1.</strong> chiudi VEIN — <strong>2.</strong> aspetta che il launcher rimuova le mod e ripristini i tuoi file — <strong>3.</strong> poi puoi chiudere il launcher.<br/>
         Se chiudi il launcher mentre il gioco è aperto, le mod restano nei file di VEIN finché non lo riapri.
       </div>
     </div>
@@ -1228,7 +1228,7 @@ HTML = """<!DOCTYPE html>
       <div class="step" id="step-deploy">
         <div class="step-icon"></div>
         <div style="flex:1;">
-          <div class="step-text">Inserimento mod in VEIN (con backup vanilla)</div>
+          <div class="step-text">Inserimento mod in VEIN (temporaneo, i tuoi file vengono salvati)</div>
           <div class="step-detail" id="step-deploy-detail">In attesa...</div>
         </div>
       </div>
@@ -1249,7 +1249,7 @@ HTML = """<!DOCTYPE html>
       <div class="step" id="step-cleanup">
         <div class="step-icon"></div>
         <div style="flex:1;">
-          <div class="step-text">Rimozione mod e ripristino vanilla</div>
+          <div class="step-text">Rimozione mod e ripristino dei tuoi file</div>
           <div class="step-detail" id="step-cleanup-detail">In attesa...</div>
         </div>
       </div>
