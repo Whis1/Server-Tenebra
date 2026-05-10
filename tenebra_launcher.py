@@ -24,7 +24,7 @@ import webview
 # CONFIGURAZIONE
 # ============================================================
 DATA_URL = "https://raw.githubusercontent.com/Whis1/Server-Tenebra/main/data.json"
-LAUNCHER_VERSION = "1.4.6"
+LAUNCHER_VERSION = "1.4.7"
 GAME_NAME = "VEIN"
 GAME_FOLDER_NAME = "Vein"  # nome cartella sotto steamapps/common
 # ============================================================
@@ -504,8 +504,10 @@ class Api:
                     self.js(f"setStatus('error', 'Errore: {self._js_escape(str(e))}')")
                 return
 
-            # Windows: bat robusto con logging, retry, copy come fallback
+            # Windows: bat che killa con forza, sostituisce, riavvia.
+            # Lo wrappiamo in un VBScript per nascondere la finestra console.
             bat_file = update_dir / "updater.bat"
+            vbs_file = update_dir / "updater.vbs"
             log_file = update_dir / "update.log"
             bat_content = (
                 "@echo off\r\n"
@@ -514,32 +516,30 @@ class Api:
                 f'set "NEW={new_exe}"\r\n'
                 f'set "CUR={current_exe}"\r\n'
                 '> "%LOG%" echo [%date% %time%] === Update started ===\r\n'
-                '>> "%LOG%" echo NEW: %NEW%\r\n'
-                '>> "%LOG%" echo CUR: %CUR%\r\n'
                 '\r\n'
-                'set /a WAITS=0\r\n'
-                ':wait\r\n'
-                'tasklist /FI "IMAGENAME eq TenebraLauncher.exe" /NH 2>NUL | find /I "TenebraLauncher.exe" >NUL\r\n'
-                'if not errorlevel 1 (\r\n'
-                '    set /a WAITS+=1\r\n'
-                '    if %WAITS% gtr 30 goto fail_timeout\r\n'
-                '    timeout /t 1 /nobreak > nul\r\n'
-                '    goto wait\r\n'
-                ')\r\n'
-                '>> "%LOG%" echo [%date% %time%] Old launcher exited (waited %WAITS%s)\r\n'
-                'timeout /t 3 /nobreak > nul\r\n'
+                'rem 1) Aspetta 2 secondi per chiusura naturale del launcher\r\n'
+                'timeout /t 2 /nobreak > nul\r\n'
                 '\r\n'
+                'rem 2) Forza chiusura di eventuali processi residui\r\n'
+                '>> "%LOG%" echo [%date% %time%] Force-kill TenebraLauncher.exe\r\n'
+                'taskkill /F /IM TenebraLauncher.exe /T >nul 2>&1\r\n'
+                'timeout /t 1 /nobreak > nul\r\n'
+                '\r\n'
+                'rem 3) Copy con retry (in caso file ancora bloccato)\r\n'
                 'set /a TRIES=0\r\n'
                 ':swap\r\n'
                 'set /a TRIES+=1\r\n'
                 '>> "%LOG%" echo [%date% %time%] Copy attempt %TRIES%\r\n'
                 'copy /y /b "%NEW%" "%CUR%" >> "%LOG%" 2>&1\r\n'
                 'if not errorlevel 1 goto swap_ok\r\n'
-                'if %TRIES% lss 20 (\r\n'
+                'if %TRIES% lss 15 (\r\n'
                 '    timeout /t 2 /nobreak > nul\r\n'
+                '    taskkill /F /IM TenebraLauncher.exe /T >nul 2>&1\r\n'
                 '    goto swap\r\n'
                 ')\r\n'
-                'goto fail_swap\r\n'
+                '>> "%LOG%" echo [%date% %time%] FAILED after %TRIES% attempts\r\n'
+                'start "" "%CUR%"\r\n'
+                'exit /b 2\r\n'
                 '\r\n'
                 ':swap_ok\r\n'
                 '>> "%LOG%" echo [%date% %time%] Swap OK after %TRIES% attempts\r\n'
@@ -548,34 +548,36 @@ class Api:
                 'start "" "%CUR%"\r\n'
                 '>> "%LOG%" echo [%date% %time%] === Done ===\r\n'
                 'exit /b 0\r\n'
-                '\r\n'
-                ':fail_timeout\r\n'
-                '>> "%LOG%" echo [%date% %time%] TIMEOUT: old launcher still running, aborting\r\n'
-                'start "" "%CUR%"\r\n'
-                'exit /b 1\r\n'
-                '\r\n'
-                ':fail_swap\r\n'
-                '>> "%LOG%" echo [%date% %time%] FAILED to copy after %TRIES% attempts, starting old\r\n'
-                'start "" "%CUR%"\r\n'
-                'exit /b 2\r\n'
             )
             bat_file.write_text(bat_content, encoding="ascii", errors="replace")
+
+            # VBScript wrapper per lanciare il bat completamente nascosto
+            vbs_content = (
+                'Set WshShell = CreateObject("WScript.Shell")\r\n'
+                f'WshShell.Run """{bat_file}""", 0, False\r\n'
+                'Set WshShell = Nothing\r\n'
+            )
+            vbs_file.write_text(vbs_content, encoding="ascii", errors="replace")
             log(f"Updater bat: {bat_file}")
 
-            time_to_quit = 1.0
-            # Lancia updater detached, senza finestra console
-            CREATE_NO_WINDOW = 0x08000000
+            # Lancia updater via VBScript (windowless, detached)
             subprocess.Popen(
-                ["cmd", "/c", str(bat_file)],
-                creationflags=(subprocess.DETACHED_PROCESS
-                               | subprocess.CREATE_NEW_PROCESS_GROUP
-                               | CREATE_NO_WINDOW),
+                ["wscript.exe", str(vbs_file)],
+                creationflags=subprocess.DETACHED_PROCESS,
                 close_fds=True,
             )
-            # Chiudi la finestra (poi processo termina e bat fa swap)
-            self.js(f"setTimeout(() => window.close && window.close(), {int(time_to_quit*1000)})")
-            # In caso pywebview non chiuda, esci hard
-            threading.Timer(time_to_quit + 1.5, lambda: os._exit(0)).start()
+            log("Updater spawnato, esco dal launcher")
+
+            # Chiudi window programmaticamente e forza exit
+            def close_and_exit():
+                try:
+                    if self.window:
+                        self.window.destroy()
+                except Exception:
+                    pass
+                os._exit(0)
+
+            threading.Timer(0.6, close_and_exit).start()
         except Exception as e:
             log(f"[ERRORE] Update: {e}")
             self.js(f"setStatus('error', 'Errore aggiornamento: {self._js_escape(str(e))}')")
