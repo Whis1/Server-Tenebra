@@ -25,7 +25,7 @@ import webview
 # CONFIGURAZIONE
 # ============================================================
 DATA_URL = "https://raw.githubusercontent.com/Whis1/Server-Tenebra/main/data.json"
-LAUNCHER_VERSION = "1.5.6"
+LAUNCHER_VERSION = "1.5.7"
 GAME_NAME = "VEIN"
 GAME_FOLDER_NAME = "Vein"  # nome cartella sotto steamapps/common
 # ============================================================
@@ -1287,6 +1287,34 @@ HTML = """<!DOCTYPE html>
   ::-webkit-scrollbar-thumb { background: var(--border); }
   ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
+  /* BOOT OVERLAY - durante caricamento iniziale */
+  #boot-overlay {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9000; transition: opacity .35s;
+  }
+  #boot-overlay.hide { opacity: 0; pointer-events: none; }
+  .boot-content { text-align: center; max-width: 480px; padding: 0 32px; }
+  .boot-logo {
+    font-family: 'Cinzel', serif; font-size: 56px; font-weight: 900;
+    letter-spacing: .25em; color: var(--text-head); margin-bottom: 36px;
+    text-shadow: 0 0 40px rgba(200,48,42,.4);
+  }
+  .boot-logo span { color: var(--accent); }
+  .boot-spinner {
+    width: 42px; height: 42px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 1s linear infinite; margin: 0 auto 24px;
+  }
+  .boot-title {
+    font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: .25em;
+    color: var(--gold); text-transform: uppercase; margin-bottom: 10px;
+  }
+  .boot-msg {
+    font-size: 14px; color: var(--text-dim); font-style: italic;
+    line-height: 1.5; min-height: 22px;
+  }
+
   /* UPDATE BANNER */
   .update-banner {
     background: linear-gradient(90deg, rgba(184,151,42,.18), rgba(200,48,42,.15));
@@ -1389,6 +1417,16 @@ HTML = """<!DOCTYPE html>
 
 <div class="app">
 
+  <!-- BOOT OVERLAY (visibile finche' non e' tutto pronto) -->
+  <div id="boot-overlay">
+    <div class="boot-content">
+      <div class="boot-logo"><span>T</span>ENEBRA</div>
+      <div class="boot-spinner"></div>
+      <div class="boot-title">Attendi un attimo</div>
+      <div class="boot-msg" id="boot-msg">Avvio del launcher...</div>
+    </div>
+  </div>
+
   <!-- UPDATE BANNER -->
   <div class="update-banner" id="update-banner">
     <div class="update-info">
@@ -1446,35 +1484,59 @@ let data = null;
 
 let _ready = false;
 
+function setBootMsg(msg) {
+  const el = document.getElementById('boot-msg');
+  if (el) el.textContent = msg;
+}
+
+function hideBootOverlay() {
+  const ov = document.getElementById('boot-overlay');
+  if (!ov) return;
+  ov.classList.add('hide');
+  setTimeout(() => { try { ov.remove(); } catch(e) {} }, 400);
+}
+
 window.addEventListener('pywebviewready', async () => {
-  api = window.pywebview.api;
-  state = await api.get_state();
-  document.getElementById('version-label').textContent = 'v' + state.version;
+  try {
+    api = window.pywebview.api;
+    setBootMsg('Lettura configurazione locale...');
+    state = await api.get_state();
+    document.getElementById('version-label').textContent = 'v' + state.version;
 
-  // Connetti e carica dati
-  data = await api.fetch();
-  setConnection(!!data);
+    setBootMsg('Connessione al server Tenebra...');
+    data = await api.fetch();
+    setConnection(!!data);
 
-  // Abilita tile (era disabilitata fino a qui per evitare freeze)
-  const tile = document.getElementById('tile-vein');
-  tile.style.opacity = '1';
-  tile.style.pointerEvents = 'auto';
-  document.getElementById('tile-status').textContent = state.game_root ? 'Steam' : 'Steam';
-  _ready = true;
-
-  // Controlla aggiornamenti launcher
-  if (data) {
-    const upd = await api.check_update();
-    if (upd && upd.available) {
-      const banner = document.getElementById('update-banner');
-      const desc = document.getElementById('update-desc');
-      desc.textContent = `Versione v${upd.remote_version} disponibile (sei alla v${state.version}).` + (upd.notes ? ' ' + upd.notes : '');
-      banner.classList.add('show');
+    if (data) {
+      setBootMsg('Verifica aggiornamenti...');
+      const upd = await api.check_update();
+      if (upd && upd.available) {
+        const banner = document.getElementById('update-banner');
+        const desc = document.getElementById('update-desc');
+        desc.textContent = 'Versione v' + upd.remote_version + ' disponibile (sei alla v' + state.version + ').' + (upd.notes ? ' ' + upd.notes : '');
+        banner.classList.add('show');
+      }
+    } else {
+      setBootMsg('Server non raggiungibile (modalita\\' offline)');
+      await new Promise(r => setTimeout(r, 700));
     }
-  }
 
-  if (state.game_root && state.exe_path) {
-    showGameInstalled();
+    // Abilita tile
+    const tile = document.getElementById('tile-vein');
+    tile.style.opacity = '1';
+    tile.style.pointerEvents = 'auto';
+    document.getElementById('tile-status').textContent = state.game_root ? 'Steam' : 'Steam';
+    _ready = true;
+
+    if (state.game_root && state.exe_path) {
+      showGameInstalled();
+    }
+
+    setBootMsg('Pronto!');
+    setTimeout(hideBootOverlay, 250);
+  } catch (e) {
+    setBootMsg('Errore di avvio: ' + e.message);
+    setTimeout(hideBootOverlay, 1500);
   }
 });
 
