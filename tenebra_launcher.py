@@ -25,7 +25,7 @@ import webview
 # CONFIGURAZIONE
 # ============================================================
 DATA_URL = "https://raw.githubusercontent.com/Whis1/Server-Tenebra/main/data.json"
-LAUNCHER_VERSION = "1.5.5"
+LAUNCHER_VERSION = "1.5.6"
 GAME_NAME = "VEIN"
 GAME_FOLDER_NAME = "Vein"  # nome cartella sotto steamapps/common
 # ============================================================
@@ -430,6 +430,97 @@ class Api:
     # DEPLOY / CLEANUP - sistema isolato (mod solo durante il gioco)
     # ============================================================
 
+    # File che vengono trattati con SMART MERGE invece di full-copy.
+    # Per questi file, copiamo solo certe sezioni dell'.ini lasciando il resto
+    # del file dell'utente intatto.
+    SMART_MERGE_FILES = {
+        "Saved/Config/Windows/GameUserSettings.ini": ["Internationalization"],
+    }
+
+    def _read_ini_section(self, path: Path, section: str) -> str | None:
+        """Estrae il testo grezzo della sezione (header + righe fino alla prossima sezione)."""
+        if not path.exists():
+            return None
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return None
+        pat = re.compile(r"(^\[" + re.escape(section) + r"\][^\[]*)", re.MULTILINE | re.IGNORECASE)
+        m = pat.search(text)
+        return m.group(1) if m else None
+
+    def _patch_ini_section(self, dest_path: Path, source_path: Path, section: str) -> dict:
+        """Inserisce la sezione 'section' (presa da source_path) nel dest_path.
+        Ritorna info per cleanup: {old_section: str|None, was_missing_file: bool}."""
+        new_section = self._read_ini_section(source_path, section)
+        if new_section is None:
+            return {"skipped": True}
+
+        was_missing = not dest_path.exists()
+        if was_missing:
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            text = ""
+        else:
+            try:
+                text = dest_path.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                text = ""
+
+        old_section = self._read_ini_section(dest_path, section)
+
+        pat = re.compile(r"(^\[" + re.escape(section) + r"\][^\[]*)", re.MULTILINE | re.IGNORECASE)
+        # Assicurati che il nuovo blocco finisca con \n\n per separazione pulita
+        ns = new_section.rstrip() + "\n\n"
+
+        if old_section:
+            new_text = pat.sub(ns, text, count=1)
+        else:
+            # Inserisci all'inizio
+            if text and not text.endswith("\n"):
+                text = text + "\n"
+            new_text = ns + text
+
+        try:
+            dest_path.write_text(new_text, encoding="utf-8")
+            return {
+                "skipped": False,
+                "was_missing_file": was_missing,
+                "old_section": old_section,
+            }
+        except Exception as e:
+            return {"skipped": True, "error": str(e)}
+
+    def _restore_ini_section(self, dest_path: Path, section: str, old_section: str | None, was_missing_file: bool):
+        """Ripristina (o rimuove) una sezione patched."""
+        if not dest_path.exists():
+            return
+        if was_missing_file:
+            # Era stato creato il file da noi -> cancellalo
+            try:
+                dest_path.unlink()
+            except Exception:
+                pass
+            return
+        try:
+            text = dest_path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return
+        pat = re.compile(r"(^\[" + re.escape(section) + r"\][^\[]*)", re.MULTILINE | re.IGNORECASE)
+        if old_section is None:
+            # Rimuovi la sezione (non c'era prima)
+            new_text = pat.sub("", text, count=1)
+        else:
+            # Riinserisci quella originale
+            old = old_section.rstrip() + "\n\n"
+            if pat.search(text):
+                new_text = pat.sub(old, text, count=1)
+            else:
+                new_text = old + text
+        try:
+            dest_path.write_text(new_text, encoding="utf-8")
+        except Exception:
+            pass
+
     def _deploy_session(self, mod_root: Path) -> dict:
         """Copia i mod dalla CACHE in VEIN, con backup dei file vanilla che
         eventualmente sostituisce. Salva un manifest per la cleanup successiva."""
@@ -443,8 +534,8 @@ class Api:
 
         manifest = []
         deployed_files = 0
+        smart_merge_paths = set(self.SMART_MERGE_FILES.keys())
 
-        # Per ogni mod attiva nella cache, deploya
         installed = self.cfg.get("installed_mods", {})
         active_mods = [m for m in (self.data.get("mods") or []) if m.get("status") == "active" and m["id"] in installed]
 
@@ -455,14 +546,31 @@ class Api:
                 continue
             base = resolve_mod_path(mod_root, mod)
 
-            # Walk e copia ogni file
             for src in mod_cache.rglob("*"):
                 if not src.is_file():
                     continue
                 rel = src.relative_to(mod_cache)
+                rel_posix = rel.as_posix()
                 dest = base / rel
 
-                # Se il file esiste, backup
+                # === SMART MERGE: file che vengono mergiati invece di sovrascritti ===
+                if rel_posix in smart_merge_paths:
+                    sections = self.SMART_MERGE_FILES[rel_posix]
+                    for section in sections:
+                        info = self._patch_ini_section(dest, src, section)
+                        if not info.get("skipped"):
+                            manifest.append({
+                                "kind": "ini_patch",
+                                "dest": str(dest),
+                                "section": section,
+                                "old_section": info["old_section"],
+                                "was_missing_file": info["was_missing_file"],
+                            })
+                            log(f"Patched {section} in {dest}")
+                            deployed_files += 1
+                    continue  # NON fare la copia full
+
+                # === COPIA STANDARD ===
                 if dest.exists():
                     backup_path = SESSION_BACKUP_DIR / "vanilla" / rel
                     backup_path.parent.mkdir(parents=True, exist_ok=True)
@@ -477,14 +585,12 @@ class Api:
                         log(f"[WARN] backup {dest}: {e}")
                 else:
                     manifest.append({"kind": "added", "dest": str(dest)})
-                    # Traccia anche le directory create per poterle rimuovere se vuote
                     parent = dest.parent
                     while parent != mod_root and parent != mod_root.parent:
                         if not parent.exists():
                             manifest.append({"kind": "created_dir", "dest": str(parent)})
                         parent = parent.parent
 
-                # Crea cartella e copia
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 try:
                     shutil.copy2(src, dest)
@@ -511,9 +617,23 @@ class Api:
 
         restored = 0
         removed = 0
-        # Processa in REVERSE: prima i file, poi le directory
         files_entries = [e for e in manifest if e["kind"] in ("added", "replaced")]
         dirs_entries = [e for e in manifest if e["kind"] == "created_dir"]
+        ini_patches = [e for e in manifest if e["kind"] == "ini_patch"]
+
+        # Restore delle sezioni .ini patched (smart merge)
+        for entry in ini_patches:
+            dest = Path(entry["dest"])
+            try:
+                self._restore_ini_section(
+                    dest,
+                    entry["section"],
+                    entry.get("old_section"),
+                    entry.get("was_missing_file", False),
+                )
+                restored += 1
+            except Exception as e:
+                log(f"[WARN] ini restore {dest}: {e}")
 
         for entry in files_entries:
             dest = Path(entry["dest"])
