@@ -25,7 +25,7 @@ import webview
 # CONFIGURAZIONE
 # ============================================================
 DATA_URL = "https://raw.githubusercontent.com/Whis1/Server-Tenebra/main/data.json"
-LAUNCHER_VERSION = "1.5.4"
+LAUNCHER_VERSION = "1.5.5"
 GAME_NAME = "VEIN"
 GAME_FOLDER_NAME = "Vein"  # nome cartella sotto steamapps/common
 # ============================================================
@@ -1316,9 +1316,6 @@ HTML = """<!DOCTYPE html>
       </div>
     </div>
 
-    <div class="lib-actions">
-      <button onclick="reDetect()" id="btn-redetect" style="display:none;">↺ Re-rileva installazione</button>
-    </div>
   </div>
 </div>
 
@@ -1384,17 +1381,6 @@ function setConnection(ok) {
 function showGameInstalled() {
   document.getElementById('tile-status').textContent = '✓ PRONTO';
   document.getElementById('tile-status').style.color = 'var(--green)';
-  const btn = document.getElementById('btn-redetect');
-  if (btn) btn.style.display = 'inline-block';
-}
-
-async function reDetect() {
-  await api.reset_game();
-  state = await api.get_state();
-  document.getElementById('tile-status').textContent = 'Steam';
-  document.getElementById('tile-status').style.color = '';
-  document.getElementById('btn-redetect').style.display = 'none';
-  setTimeout(() => startLaunch(), 200);
 }
 
 function esc(s) {
