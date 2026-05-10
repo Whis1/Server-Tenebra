@@ -24,7 +24,7 @@ import webview
 # CONFIGURAZIONE
 # ============================================================
 DATA_URL = "https://raw.githubusercontent.com/Whis1/Server-Tenebra/main/data.json"
-LAUNCHER_VERSION = "1.4.7"
+LAUNCHER_VERSION = "1.4.8"
 GAME_NAME = "VEIN"
 GAME_FOLDER_NAME = "Vein"  # nome cartella sotto steamapps/common
 # ============================================================
@@ -1029,7 +1029,7 @@ HTML = """<!DOCTYPE html>
     </div>
 
     <div class="lib-grid">
-      <div class="game-tile" id="tile-vein" onclick="startLaunch()">
+      <div class="game-tile" id="tile-vein" onclick="onTileClick()" style="opacity:0.5;pointer-events:none;">
         <div class="game-tile-art">
           <div class="game-tile-name">VEIN</div>
         </div>
@@ -1039,7 +1039,7 @@ HTML = """<!DOCTYPE html>
         </div>
         <div class="game-tile-foot">
           <span class="game-tile-info">VEIN</span>
-          <span class="game-tile-meta" id="tile-status">Steam</span>
+          <span class="game-tile-meta" id="tile-status">Caricamento...</span>
         </div>
       </div>
     </div>
@@ -1055,6 +1055,8 @@ let api = null;
 let state = null;
 let data = null;
 
+let _ready = false;
+
 window.addEventListener('pywebviewready', async () => {
   api = window.pywebview.api;
   state = await api.get_state();
@@ -1063,6 +1065,13 @@ window.addEventListener('pywebviewready', async () => {
   // Connetti e carica dati
   data = await api.fetch();
   setConnection(!!data);
+
+  // Abilita tile (era disabilitata fino a qui per evitare freeze)
+  const tile = document.getElementById('tile-vein');
+  tile.style.opacity = '1';
+  tile.style.pointerEvents = 'auto';
+  document.getElementById('tile-status').textContent = state.game_root ? 'Steam' : 'Steam';
+  _ready = true;
 
   // Controlla aggiornamenti launcher
   if (data) {
@@ -1178,7 +1187,13 @@ window.syncComplete = (success, errorMsg) => {
   }
 };
 
+function onTileClick() {
+  if (!_ready) return;  // ignore clicks fired prima che pywebview sia pronto
+  startLaunch();
+}
+
 async function startLaunch() {
+  if (!_ready || !api) return;
   resetSteps();
   document.getElementById('launch-title').innerHTML = 'Avvio <span>VEIN</span>';
   document.getElementById('modal-launch').classList.add('show');
