@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import json
+import time
 import shutil
 import platform
 import zipfile
@@ -24,7 +25,7 @@ import webview
 # CONFIGURAZIONE
 # ============================================================
 DATA_URL = "https://raw.githubusercontent.com/Whis1/Server-Tenebra/main/data.json"
-LAUNCHER_VERSION = "1.4.8"
+LAUNCHER_VERSION = "1.5.0"
 GAME_NAME = "VEIN"
 GAME_FOLDER_NAME = "Vein"  # nome cartella sotto steamapps/common
 # ============================================================
@@ -33,6 +34,12 @@ IS_WINDOWS = platform.system() == "Windows"
 CONFIG_DIR = Path(os.environ.get("APPDATA", Path.home() / ".config")) / "Tenebra" if IS_WINDOWS else Path.home() / ".config" / "Tenebra"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 LOG_FILE = CONFIG_DIR / "launcher.log"
+
+# Cache locale per i mod (extracted, non spediti in VEIN finche' non si gioca)
+CACHE_DIR = CONFIG_DIR / "cache"
+SESSION_BACKUP_DIR = CONFIG_DIR / "session-backup"
+SESSION_MANIFEST = CONFIG_DIR / "session-manifest.json"
+INSTALLED_MARKER = CONFIG_DIR / "cache-versions.json"
 
 
 def log(msg: str):
@@ -312,20 +319,25 @@ class Api:
         return True
 
     def _mod_needs_install(self, mod, mod_root, installed):
+        """Verifica se il mod va (re)scaricato nella CACHE locale del launcher."""
         mid = mod.get("id")
         if not mid:
             return False
         # Versione diversa o mai installata -> serve install
         if installed.get(mid) != mod.get("version"):
             return True
-        # Anche se config dice "installato", verifica che il file marker esista
+        # Verifica il file marker NELLA CACHE (non in VEIN, dove non c'e' tra una sessione e l'altra)
         verify_key = "verify_file_windows" if IS_WINDOWS else "verify_file_linux"
         verify = mod.get(verify_key) or mod.get("verify_file")
+        mod_cache = CACHE_DIR / mid
         if verify:
-            verify_path = (mod_root / verify.replace("\\", "/")).resolve()
+            verify_path = (mod_cache / verify.replace("\\", "/")).resolve()
             if not verify_path.exists():
-                log(f"verify_file mancante per {mid}: {verify_path} -> reinstall")
+                log(f"verify_file mancante in cache per {mid}: {verify_path} -> rescarico")
                 return True
+        elif not mod_cache.exists() or not any(mod_cache.iterdir()):
+            # Nessun verify_file: controlla almeno che la cache esista e non sia vuota
+            return True
         return False
 
     def _install_all_thread(self):
@@ -366,11 +378,15 @@ class Api:
             self.js(f"syncComplete({str(success).lower()}, '{self._js_escape(error_msg)}')")
 
     def _install_single(self, mod, mod_root):
+        """Scarica il mod nella CACHE LOCALE (non in VEIN). I file in VEIN
+        verranno deployati solo durante il gioco e rimossi al suo termine."""
         url = mod.get("url")
         if not url:
             return False
-        dest_dir = resolve_mod_path(mod_root, mod)
-        tmp_file = CONFIG_DIR / "tmp" / f"{mod['id']}.tmp"
+        # La cache di QUESTO mod e' una sotto-cartella separata
+        mid = mod["id"]
+        mod_cache = CACHE_DIR / mid
+        tmp_file = CONFIG_DIR / "tmp" / f"{mid}.tmp"
         tmp_file.parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -382,30 +398,186 @@ class Api:
             urllib.request.urlretrieve(url, tmp_file, hook)
             log(f"Scaricato {mod['name']} da {url}")
 
-            dest_dir.mkdir(parents=True, exist_ok=True)
+            # Pulisci la cache di questo mod e ricostruiscila
+            if mod_cache.exists():
+                shutil.rmtree(mod_cache, ignore_errors=True)
+            mod_cache.mkdir(parents=True, exist_ok=True)
+
             if url.lower().split("?")[0].endswith(".zip"):
                 try:
                     with zipfile.ZipFile(tmp_file, "r") as z:
-                        z.extractall(dest_dir)
+                        z.extractall(mod_cache)
                 except zipfile.BadZipFile:
-                    shutil.copy2(tmp_file, dest_dir / Path(url.split("?")[0]).name)
+                    shutil.copy2(tmp_file, mod_cache / Path(url.split("?")[0]).name)
             else:
                 fname = Path(url.split("?")[0]).name
-                shutil.copy2(tmp_file, dest_dir / fname)
+                shutil.copy2(tmp_file, mod_cache / fname)
 
             try:
                 tmp_file.unlink(missing_ok=True)
             except Exception:
                 pass
+            log(f"Cache aggiornata per {mid} -> {mod_cache}")
             return True
         except Exception as e:
             log(f"[ERRORE] install {mod.get('name')}: {e}")
             return False
 
+    # ============================================================
+    # DEPLOY / CLEANUP - sistema isolato (mod solo durante il gioco)
+    # ============================================================
+
+    def _deploy_session(self, mod_root: Path) -> dict:
+        """Copia i mod dalla CACHE in VEIN, con backup dei file vanilla che
+        eventualmente sostituisce. Salva un manifest per la cleanup successiva."""
+        SESSION_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        # Pulisci backup precedente
+        for x in SESSION_BACKUP_DIR.iterdir():
+            if x.is_dir():
+                shutil.rmtree(x, ignore_errors=True)
+            else:
+                x.unlink(missing_ok=True)
+
+        manifest = []
+        deployed_files = 0
+
+        # Per ogni mod attiva nella cache, deploya
+        installed = self.cfg.get("installed_mods", {})
+        active_mods = [m for m in (self.data.get("mods") or []) if m.get("status") == "active" and m["id"] in installed]
+
+        for mod in active_mods:
+            mid = mod["id"]
+            mod_cache = CACHE_DIR / mid
+            if not mod_cache.exists():
+                continue
+            base = resolve_mod_path(mod_root, mod)
+
+            # Walk e copia ogni file
+            for src in mod_cache.rglob("*"):
+                if not src.is_file():
+                    continue
+                rel = src.relative_to(mod_cache)
+                dest = base / rel
+
+                # Se il file esiste, backup
+                if dest.exists():
+                    backup_path = SESSION_BACKUP_DIR / "vanilla" / rel
+                    backup_path.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        shutil.copy2(dest, backup_path)
+                        manifest.append({
+                            "kind": "replaced",
+                            "dest": str(dest),
+                            "backup": str(backup_path),
+                        })
+                    except Exception as e:
+                        log(f"[WARN] backup {dest}: {e}")
+                else:
+                    manifest.append({"kind": "added", "dest": str(dest)})
+                    # Traccia anche le directory create per poterle rimuovere se vuote
+                    parent = dest.parent
+                    while parent != mod_root and parent != mod_root.parent:
+                        if not parent.exists():
+                            manifest.append({"kind": "created_dir", "dest": str(parent)})
+                        parent = parent.parent
+
+                # Crea cartella e copia
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    shutil.copy2(src, dest)
+                    deployed_files += 1
+                except Exception as e:
+                    log(f"[WARN] deploy {dest}: {e}")
+
+        SESSION_MANIFEST.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        log(f"Deploy completato: {deployed_files} file deployati, manifest in {SESSION_MANIFEST}")
+        return {"ok": True, "files": deployed_files}
+
+    def _cleanup_session(self, silent=False) -> dict:
+        """Rimuove i mod deployati e ripristina i file vanilla dal backup."""
+        if not SESSION_MANIFEST.exists():
+            if not silent:
+                log("Nessuna sessione da pulire")
+            return {"ok": True, "restored": 0, "removed": 0}
+
+        try:
+            manifest = json.loads(SESSION_MANIFEST.read_text(encoding="utf-8"))
+        except Exception as e:
+            log(f"[ERRORE] read manifest: {e}")
+            return {"ok": False, "error": str(e)}
+
+        restored = 0
+        removed = 0
+        # Processa in REVERSE: prima i file, poi le directory
+        files_entries = [e for e in manifest if e["kind"] in ("added", "replaced")]
+        dirs_entries = [e for e in manifest if e["kind"] == "created_dir"]
+
+        for entry in files_entries:
+            dest = Path(entry["dest"])
+            try:
+                if entry["kind"] == "added":
+                    if dest.exists() and dest.is_file():
+                        dest.unlink()
+                        removed += 1
+                elif entry["kind"] == "replaced":
+                    backup = Path(entry["backup"])
+                    if backup.exists():
+                        shutil.copy2(backup, dest)
+                        restored += 1
+            except Exception as e:
+                log(f"[WARN] cleanup {dest}: {e}")
+
+        # Rimuovi cartelle create che ora sono vuote (dal piu' profondo)
+        for entry in sorted(dirs_entries, key=lambda x: -len(x["dest"])):
+            d = Path(entry["dest"])
+            try:
+                if d.exists() and d.is_dir():
+                    # Rimuovi solo se vuota
+                    try:
+                        d.rmdir()
+                    except OSError:
+                        pass  # non vuota
+            except Exception:
+                pass
+
+        # Cancella manifest e backup
+        try:
+            SESSION_MANIFEST.unlink(missing_ok=True)
+            if SESSION_BACKUP_DIR.exists():
+                shutil.rmtree(SESSION_BACKUP_DIR, ignore_errors=True)
+        except Exception:
+            pass
+
+        log(f"Cleanup completato: {removed} rimossi, {restored} ripristinati")
+        return {"ok": True, "restored": restored, "removed": removed}
+
+    def _is_game_running(self) -> bool:
+        """Controlla se ci sono processi VEIN in esecuzione."""
+        if not IS_WINDOWS:
+            try:
+                r = subprocess.run(["pgrep", "-f", "Vein"], capture_output=True, timeout=5)
+                return r.returncode == 0
+            except Exception:
+                return False
+        try:
+            r = subprocess.run(
+                ["tasklist", "/NH", "/FO", "CSV"],
+                capture_output=True, text=True, timeout=5,
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+            )
+            for line in r.stdout.lower().splitlines():
+                # match qualsiasi processo che contiene "vein" ma non "tenebra"
+                if "vein" in line and "tenebra" not in line:
+                    return True
+        except Exception:
+            pass
+        return False
+
     def launch_game(self):
+        """Deploy mod -> avvia gioco -> attendi chiusura -> cleanup. NON CHIUDE
+        il launcher, lo tiene aperto per gestire la cleanup."""
         exe_path = self.cfg.get("exe_path")
         if not exe_path or not Path(exe_path).exists():
-            # tenta di rilevarlo di nuovo
             game_root = self.cfg.get("game_root")
             if game_root:
                 found = find_game_executable(Path(game_root))
@@ -417,29 +589,83 @@ class Api:
             self.js("setStatus('error', 'Eseguibile VEIN non trovato')")
             return False
 
-        exe = Path(exe_path)
-        log(f"Avvio gioco: {exe}")
+        # Avvia tutto in un thread (cosi' il launcher resta reattivo)
+        threading.Thread(target=self._launch_thread, args=(exe_path,), daemon=True).start()
+        return True
+
+    def _launch_thread(self, exe_path: str):
         try:
-            if IS_WINDOWS:
-                # Popen evita ShellExecute (no UAC se non richiesto)
-                subprocess.Popen([str(exe)], cwd=str(exe.parent),
-                                 creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
-            else:
-                subprocess.Popen([str(exe)], cwd=str(exe.parent), start_new_session=True)
-            self.js(f"setStatus('ok', 'Avvio: {self._js_escape(exe.name)}')")
-            return True
-        except Exception as e:
-            # Fallback su startfile
+            mod_root = Path(self.cfg["mod_root"])
+            exe = Path(exe_path)
+
+            # 1) Cleanup preventiva (se sessione precedente non ripulita per crash)
+            if SESSION_MANIFEST.exists():
+                log("Trovata sessione precedente non pulita, eseguo cleanup")
+                self._cleanup_session(silent=True)
+
+            # 2) Deploy mod
+            self.js("setLaunchStep('deploy', 'active', 'Inserisco le mod in VEIN (con backup vanilla)...')")
+            res = self._deploy_session(mod_root)
+            if not res.get("ok"):
+                self.js("setLaunchStep('deploy', 'error', 'Deploy fallito')")
+                return
+            self.js("setLaunchStep('deploy', 'done', 'Deployati " + str(res["files"]) + " file')")
+
+            # 3) Avvia gioco
+            self.js("setLaunchStep('launch', 'active', 'Avvio VEIN...')")
+            log(f"Avvio gioco: {exe}")
             try:
                 if IS_WINDOWS:
-                    os.startfile(str(exe))
-                    self.js(f"setStatus('ok', 'Avvio: {self._js_escape(exe.name)}')")
-                    return True
-            except Exception as e2:
-                log(f"[ERRORE] avvio fallback: {e2}")
-            log(f"[ERRORE] avvio: {e}")
-            self.js(f"setStatus('error', 'Errore avvio: {self._js_escape(str(e))}')")
-            return False
+                    subprocess.Popen([str(exe)], cwd=str(exe.parent),
+                                     creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+                else:
+                    subprocess.Popen([str(exe)], cwd=str(exe.parent), start_new_session=True)
+            except Exception as e:
+                log(f"[ERRORE] avvio: {e}")
+                self.js(f"setLaunchStep('launch', 'error', 'Errore avvio: {self._js_escape(str(e))}')")
+                # Cleanup immediata visto che il gioco non parte
+                self._cleanup_session(silent=True)
+                return
+
+            self.js("setLaunchStep('launch', 'done', 'VEIN avviato')")
+            self.js("setLaunchStep('playing', 'active', 'In attesa che VEIN si avvii...')")
+
+            # 4) Aspetta che il gioco appaia (max 60s)
+            deadline = time.time() + 60
+            game_started = False
+            while time.time() < deadline:
+                if self._is_game_running():
+                    game_started = True
+                    break
+                time.sleep(2)
+
+            if not game_started:
+                log("[WARN] Gioco non rilevato dopo 60s, cleanup comunque")
+                self.js("setLaunchStep('playing', 'error', 'VEIN non si e\\' avviato in tempo')")
+            else:
+                self.js("setLaunchStep('playing', 'active', 'GIOCO IN CORSO - chiudi VEIN per finire')")
+                # 5) Aspetta che il gioco si chiuda
+                while self._is_game_running():
+                    time.sleep(3)
+                self.js("setLaunchStep('playing', 'done', 'VEIN chiuso')")
+
+            # 6) Cleanup
+            self.js("setLaunchStep('cleanup', 'active', 'Rimuovo le mod, ripristino vanilla...')")
+            cres = self._cleanup_session()
+            if cres.get("ok"):
+                msg = "Vanilla ripristinato (" + str(cres["removed"]) + " rimossi, " + str(cres["restored"]) + " ripristinati)"
+                self.js("setLaunchStep('cleanup', 'done', '" + msg + "')")
+            else:
+                self.js("setLaunchStep('cleanup', 'error', 'Errore durante cleanup')")
+
+            self.js("launchSessionDone()")
+        except Exception as e:
+            log(f"[ERRORE] _launch_thread: {e}")
+            self.js(f"setLaunchStep('cleanup', 'error', 'Errore: {self._js_escape(str(e))}')")
+            try:
+                self._cleanup_session(silent=True)
+            except Exception:
+                pass
 
     def open_log(self):
         try:
@@ -971,8 +1197,15 @@ HTML = """<!DOCTYPE html>
       <div class="step" id="step-sync">
         <div class="step-icon"></div>
         <div style="flex:1;">
-          <div class="step-text">Sincronizzazione mod</div>
+          <div class="step-text">Download mod (in cache locale)</div>
           <div class="step-detail" id="step-sync-detail">In attesa...</div>
+        </div>
+      </div>
+      <div class="step" id="step-deploy">
+        <div class="step-icon"></div>
+        <div style="flex:1;">
+          <div class="step-text">Inserimento mod in VEIN (con backup vanilla)</div>
+          <div class="step-detail" id="step-deploy-detail">In attesa...</div>
         </div>
       </div>
       <div class="step" id="step-launch">
@@ -980,6 +1213,20 @@ HTML = """<!DOCTYPE html>
         <div style="flex:1;">
           <div class="step-text">Avvio gioco</div>
           <div class="step-detail" id="step-launch-detail">In attesa...</div>
+        </div>
+      </div>
+      <div class="step" id="step-playing">
+        <div class="step-icon"></div>
+        <div style="flex:1;">
+          <div class="step-text">Gioco in corso</div>
+          <div class="step-detail" id="step-playing-detail">In attesa...</div>
+        </div>
+      </div>
+      <div class="step" id="step-cleanup">
+        <div class="step-icon"></div>
+        <div style="flex:1;">
+          <div class="step-text">Rimozione mod e ripristino vanilla</div>
+          <div class="step-detail" id="step-cleanup-detail">In attesa...</div>
         </div>
       </div>
     </div>
@@ -1131,8 +1378,9 @@ function esc(s) {
 
 // ============ MODAL HELPERS ============
 function resetSteps() {
-  ['detect','sync','launch'].forEach(id => {
+  ['detect','sync','deploy','launch','playing','cleanup'].forEach(id => {
     const el = document.getElementById('step-' + id);
+    if (!el) return;
     el.classList.remove('active','done','error');
     document.getElementById('step-' + id + '-detail').textContent = 'In attesa...';
   });
@@ -1141,6 +1389,17 @@ function resetSteps() {
   document.getElementById('launch-actions').style.display = 'none';
   document.getElementById('btn-manual').style.display = 'none';
   document.getElementById('btn-retry').style.display = 'none';
+}
+
+// Alias per i callback Python che usano nomi step generici
+function setLaunchStep(id, st, detail) {
+  setStep(id, st, detail);
+}
+
+function launchSessionDone() {
+  // Sessione completata (gioco chiuso e cleanup eseguita)
+  showLaunchActions({retry: false});
+  document.getElementById('btn-close').textContent = 'OK';
 }
 
 function setStep(id, state, detail) {
@@ -1245,16 +1504,16 @@ async function startLaunch() {
     setStep('sync', 'done', `${mods.length} mod pronte`);
   }
 
-  // STEP 3: Avvio gioco
-  setStep('launch', 'active', 'Lancio VEIN...');
+  // STEP 3: deploy + launch + wait + cleanup (gestito dal thread Python)
+  // Non chiudiamo il launcher: deve restare aperto per fare la cleanup
+  // quando l'utente chiude VEIN.
   const ok = await api.launch_game();
-  if (ok) {
-    setStep('launch', 'done', 'Gioco avviato. Buona fortuna.');
-    setTimeout(() => window.close && window.close(), 1800);
-  } else {
+  if (!ok) {
     setStep('launch', 'error', 'Errore durante l\\'avvio del gioco');
     showLaunchActions({retry: true});
   }
+  // Da qui in poi gli step 'deploy', 'launch', 'playing', 'cleanup'
+  // vengono aggiornati dal thread Python via evaluate_js.
 }
 
 async function manualPick() {
