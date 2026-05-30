@@ -11,10 +11,10 @@
     {
       "id": "tenebra-core-modpack",
       "name": "Tenebra Core",
-      "version": "1.1.15",
+      "version": "1.1.16",
       "description": "UE4SS + tutte le mod Tenebra (CamminoMod, CamminoClientUI, CapitanoIchy2k21), LogicMods (.pak), Localization e patch lingua italiana.",
       "url": "https://github.com/Whis1/Server-Tenebra/releases/download/v1.0.0/TenebraModpack.zip",
-      "size": "13 MB",
+      "size": "9 MB",
       "path_windows": "VEIN\\",
       "path_linux": "VEIN/",
       "verify_file_windows": "Binaries/Win64/ue4ss/UE4SS.dll",
